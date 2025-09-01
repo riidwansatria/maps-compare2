@@ -56,7 +56,7 @@ export class MapApplication {
   async loadSavedData() {
     try {
       const savedData = this.storageManager.load()
-      if (savedData) {
+      if (savedData && savedData.filename && savedData.geojson) {
         console.log('📁 Found saved GeoJSON:', savedData.filename)
         
         const success = await this.mapManager.loadGeoJSON(savedData.geojson)
