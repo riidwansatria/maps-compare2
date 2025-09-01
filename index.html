@@ -14,13 +14,16 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+  <!-- THE FIX: Replaced NorthArrow with the more reliable Compass plugin CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-compass@1.2.0/dist/leaflet-compass.min.css" />
 
   <!-- External Libraries (Load before the app) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
-  <!-- THE FIX: Replaced leaflet-image with the more reliable html2canvas library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- THE FIX: Replaced NorthArrow with the Compass plugin JS -->
+  <script src="https://unpkg.com/leaflet-compass@1.2.0/dist/leaflet-compass.min.js"></script>
 
   <!-- Vite will inject the final CSS link here during build -->
 </head>

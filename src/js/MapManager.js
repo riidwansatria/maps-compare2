@@ -113,7 +113,8 @@ export class MapManager {
 
   async initializeMaps() {
     await this._waitForLeafletPlugin('L.PM');
-    // Note: No longer waiting for leafletImage, as we now use html2canvas
+    // THE FIX: Wait for the new, more reliable compass plugin
+    await this._waitForLeafletPlugin('L.Control.Compass'); 
 
     console.log('🗺️ Initializing maps...')
     
@@ -169,6 +170,14 @@ export class MapManager {
   addMapControls(map, baseLayers, geojsonLayer) {
     L.control.scale({ maxWidth: 200, position: 'bottomright', imperial: false }).addTo(map);
     new ScaleSelector({ position: 'bottomright', mapManager: this }).addTo(map);
+
+    // THE FIX: Add the new compass control to the top right of the map
+    L.control.compass({
+      position: 'topright',
+      autoActive: true, // Keep the compass visible
+      showDigit: false, // Hide the degree number for a cleaner look
+      textErr: '方位磁針は利用できません',
+    }).addTo(map);
 
     const overlayLayers = { "GeoJSON": geojsonLayer };
     const geomanLayer = (map === this.map1) ? this.geomanLayer1 : this.geomanLayer2;
@@ -284,9 +293,9 @@ export class MapManager {
   _calculateGeodesicArea(latLngs) {
     const R = 6378137; // Earth's radius in meters
     let area = 0;
-    const n = latLngs.length;
+    const n = latlngs.length;
     for (let i = 0; i < n; i++) {
-      const p1 = latLngs[i];
+      const p1 = latlngs[i];
       const p2 = latlngs[(i + 1) % n];
       area += (p1.lng - p2.lng) * (Math.PI / 180) *
               (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
