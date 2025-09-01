@@ -1,0 +1,48 @@
+{
+  "name": "geomap-viewer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Interactive dual-map GeoJSON viewer with GSI historical layers",
+  "keywords": [
+    "maps",
+    "geojson",
+    "leaflet",
+    "gsi",
+    "japan"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite preview --port 3000",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/ --ext .js",
+    "format": "prettier --write src/",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.12",
+    "leaflet": "^1.9.4",
+    "leaflet-control-geocoder": "^2.4.0",
+    "tailwindcss": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

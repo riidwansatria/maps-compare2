@@ -1,0 +1,390 @@
+/* --- src/css/components.css --- */
+
+/* ---------------------------------- */
+/* 1. Global Styles          */
+/* ---------------------------------- */
+
+:root {
+  /* Colors */
+  --color-primary: #007aff;
+  --color-primary-light: #e6f2ff;
+  --color-secondary: #6c757d;
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-warning: #ffc107;
+  --color-info: #17a2b8;
+
+  /* UI Colors */
+  --background-color: #ffffff;
+  --panel-background: rgba(255, 255, 255, 0.95);
+  --border-color: #dee2e6;
+  --text-color: #212529;
+  --text-muted: #6c757d;
+  --overlay-background: rgba(0, 0, 0, 0.6);
+
+  /* Sizing & Radius */
+  --border-radius: 8px;
+  --spacing: 12px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: var(--font-family);
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+/* ---------------------------------- */
+/* 2. Control Panel Layout       */
+/* ---------------------------------- */
+
+#control-panel-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.control-panel {
+  background: var(--panel-background);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1.5);
+  border: 1px solid var(--border-color);
+}
+
+.control-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--spacing);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.control-panel__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.control-panel__status {
+  min-height: 18px;
+  text-align: center;
+}
+
+/* ---------------------------------- */
+/* 3. Buttons              */
+/* ---------------------------------- */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--border-radius) / 1.5);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn--secondary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn--danger {
+  background-color: var(--color-danger);
+  color: white;
+}
+
+.btn--outline {
+  background-color: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+
+.btn--outline:hover {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+}
+
+.btn--small {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.btn-icon {
+  font-size: 1.1em;
+}
+
+/* Sync Indicator */
+.sync-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.sync-indicator--on {
+  background-color: var(--color-success);
+  box-shadow: 0 0 5px var(--color-success);
+}
+
+.sync-indicator--off {
+  background-color: var(--color-secondary);
+}
+
+
+/* ---------------------------------- */
+/* 4. File Input & Actions     */
+/* ---------------------------------- */
+
+.file-input-wrapper {
+  position: relative;
+}
+
+.file-input {
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  z-index: -1;
+}
+
+.file-input-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 2px dashed var(--border-color);
+  border-radius: calc(var(--border-radius) / 1.5);
+  background-color: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-input-label:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.file-size {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.file-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ---------------------------------- */
+/* 5. Status & Notifications    */
+/* ---------------------------------- */
+
+.status-message {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.status-message--success { color: var(--color-success); }
+.status-message--error   { color: var(--color-danger); }
+.status-message--warning { color: var(--color-warning); }
+.status-message--info    { color: var(--color-info); }
+
+
+/* Toast Container */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.toast {
+  background: var(--background-color);
+  padding: var(--spacing);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  border-left: 5px solid;
+  min-width: 280px;
+  animation: slideIn 0.3s ease forwards;
+}
+
+.toast__content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast__icon { font-size: 1.2rem; }
+.toast__message { flex-grow: 1; font-size: 0.9rem; }
+.toast__close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.toast--success { border-color: var(--color-success); }
+.toast--error   { border-color: var(--color-danger); }
+.toast--warning { border-color: var(--color-warning); }
+.toast--info    { border-color: var(--color-info); }
+
+
+/* ---------------------------------- */
+/* 6. Overlays & Loaders        */
+/* ---------------------------------- */
+
+/* Drag & Drop Overlay */
+.drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--overlay-background);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none; /* Important for drop events */
+}
+
+.drop-message {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 20px 40px;
+  border: 3px dashed white;
+  border-radius: var(--border-radius);
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Loading Spinner */
+.loading-indicator .spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---------------------------------- */
+/* 7. Animations             */
+/* ---------------------------------- */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 0.6s ease;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+
+/* ---------------------------------- */
+/* 8. Responsive Design        */
+/* ---------------------------------- */
+
+/* This section has been moved to responsive.css */
+

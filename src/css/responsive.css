@@ -1,0 +1,105 @@
+/* --- src/css/responsive.css --- */
+
+/* This file contains all media queries and responsive adjustments.
+  Import this file in main.js AFTER components.css and style.css 
+  to ensure these rules have the correct specificity.
+*/
+
+/* ---------------------------------- */
+/* 1. Tablet & Mobile (Portrait)      */
+/* (Screens less than 768px wide)  */
+/* ---------------------------------- */
+
+@media (max-width: 768px) {
+
+  /* --- Map Layout --- */
+  /* Stack the two maps vertically instead of side-by-side */
+  .flex-container, .flex { /* Targeting common flex container names */
+    flex-direction: column;
+  }
+
+  /* Make each map container take up half the available screen height */
+  #mapcontainer1, #mapcontainer2 {
+    height: 50vh;
+    width: 100%;
+  }
+
+  /* --- Control Panel --- */
+  /* Adjust positioning and size for smaller screens */
+  .control-panel-container {
+    top: 10px;
+    right: 10px;
+    left: 10px; /* Make it span the width */
+    max-width: none;
+    width: auto; /* Let left/right positioning handle the width */
+  }
+  
+  .control-panel {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .control-panel__title {
+    font-size: 1rem;
+  }
+  
+  .btn {
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+
+  /* --- Drag & Drop Overlay --- */
+  .drop-message {
+    font-size: 1.2rem;
+    padding: 15px 30px;
+    text-align: center;
+  }
+  
+  /* --- Leaflet UI --- */
+  /* Make Leaflet controls slightly larger for easier tapping */
+  .leaflet-bar a, .leaflet-bar a:hover {
+    width: 34px !important;
+    height: 34px !important;
+    line-height: 34px !important;
+  }
+
+  .leaflet-control-layers-toggle {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+
+/* ---------------------------------- */
+/* 2. Mobile (Landscape)              */
+/* (Screens less than 576px high)  */
+/* ---------------------------------- */
+
+@media (max-height: 576px) and (orientation: landscape) {
+  
+  /* When the phone is turned sideways, the control panel can take up too much vertical space.
+     This makes the controls more compact. */
+  .control-panel {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .control-panel__section {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .control-label {
+    margin-bottom: 0;
+  }
+  
+  .file-actions {
+     display: flex;
+  }
+
+  #toast-container {
+    bottom: 10px;
+    right: 10px;
+  }
+}

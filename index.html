@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoMap Viewer - 地理院地図デュアルビューア</title>
+  <meta name="description" content="Interactive dual-map viewer for GeoJSON data with GSI historical layers">
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#2196f3">
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style">
+  <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script">
+  
+  <!-- External CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-spinner"></div>
+    <p>地図を読み込み中...</p>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="app" class="app-container" style="display: none;">
+    <!-- Map Container -->
+    <div class="map-container">
+      <div id="mapcontainer1" class="map"></div>
+      <div id="mapcontainer2" class="map"></div>
+    </div>
+
+    <!-- Control Panel (will be created by JavaScript) -->
+    <div id="control-panel-container"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <!-- Error Screen -->
+  <div id="error-screen" class="error-screen" style="display: none;">
+    <h2>🚫 アプリケーションの読み込みに失敗しました</h2>
+    <p>ページを再読み込みしてください。</p>
+    <button onclick="location.reload()" class="btn btn--primary">再読み込み</button>
+  </div>
+
+  <!-- External Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  
+  <!-- App Entry Point -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
