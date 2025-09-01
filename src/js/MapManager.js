@@ -92,14 +92,45 @@ export class MapManager {
     this.userLocationMarker = null // To hold the marker for the user's location
   }
 
+  /**
+   * Helper method to wait for a Leaflet plugin to be available.
+   * @param {string} pluginName - The name of the plugin object to check for (e.g., 'L.PM').
+   * @param {number} timeout - The maximum time to wait in milliseconds.
+   * @returns {Promise<void>}
+   */
+  async _waitForLeafletPlugin(pluginName, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      const check = () => {
+        // Check for nested properties like 'L.PM'
+        const props = pluginName.split('.');
+        let obj = window;
+        const exists = props.every(prop => {
+          obj = obj[prop];
+          return obj;
+        });
+
+        if (exists) {
+          resolve();
+        } else if (Date.now() - startTime > timeout) {
+          reject(new Error(`Timed out waiting for Leaflet plugin: ${pluginName}`));
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
   async initializeMaps() {
+    // Wait for the new Leaflet-Geoman plugin to be ready
+    await this._waitForLeafletPlugin('L.PM');
+
     console.log('🗺️ Initializing maps...')
     
     const baseLayers1 = this.createBaseLayers()
     const baseLayers2 = this.createBaseLayers()
 
-    // --- THE FIX IS HERE ---
-    // Added zoomSnap and zoomDelta to enable smooth, fractional zooming.
     const mapOptions = {
       center: [35.703640, 139.747635],
       zoom: 11, // Default zoom level
@@ -170,6 +201,110 @@ export class MapManager {
         position: 'bottomright',
         mapManager: this
     }).addTo(map);
+
+    // Add the Leaflet-Geoman drawing/measurement controls only to the primary map (map1)
+    if (map === this.map1) {
+      map.pm.addControls({
+        position: 'topleft',
+        drawCircle: false,
+        drawCircleMarker: false,
+        drawMarker: false,
+        drawRectangle: true, // Enable rectangle for area measurement
+        cutPolygon: false,
+        editMode: true,
+        removalMode: true,
+      });
+
+      // Set the language to Japanese for a better user experience
+      map.pm.setLang('ja');
+
+      // Optional: Add custom styling to the drawing tools
+      map.pm.setPathOptions({
+        color: '#db4a37',
+        fillColor: '#db4a37',
+        fillOpacity: 0.4,
+      });
+
+      // --- Self-contained helper function for area calculation ---
+      const calculateGeodesicArea = (latLngs) => {
+        const R = 6378137; // Earth's radius in meters
+        let area = 0;
+        const n = latLngs.length;
+
+        for (let i = 0; i < n; i++) {
+          const p1 = latLngs[i];
+          const p2 = latLngs[(i + 1) % n];
+          area += (p1.lng - p2.lng) * (Math.PI / 180) *
+                  (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
+        }
+        return Math.abs(area * R * R / 2.0);
+      };
+
+      // Helper function to format measurements into a user-friendly string
+      const formatMeasurement = (layer) => {
+        let text = '計測結果:<br>';
+        let hasMeasurement = false;
+
+        // Calculate distance/perimeter for polylines AND polygons
+        if (layer instanceof L.Polyline) {
+          const latlngs = layer.getLatLngs();
+          let distance = 0;
+          
+          const points = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+
+          for (let i = 0; i < points.length - 1; i++) {
+              distance += points[i].distanceTo(points[i + 1]);
+          }
+          
+          // For polygons, add the distance from the last point back to the first
+          if (layer instanceof L.Polygon && points.length > 1) {
+              distance += points[points.length - 1].distanceTo(points[0]);
+          }
+
+          hasMeasurement = true;
+          // Use '周囲' (Perimeter) for polygons, '距離' (Distance) for lines
+          const label = (layer instanceof L.Polygon) ? '周囲' : '距離'; 
+
+          if (distance > 1000) {
+              text += `<strong>${label}:</strong> ${(distance / 1000).toFixed(2)} km<br>`;
+          } else {
+              text += `<strong>${label}:</strong> ${distance.toFixed(2)} m<br>`;
+          }
+        }
+        
+        // Calculate and format area ONLY for polygons and rectangles
+        if (layer instanceof L.Polygon) {
+          const latlngs = layer.getLatLngs();
+          const areaLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+          const area = calculateGeodesicArea(areaLatLngs);
+          
+          hasMeasurement = true;
+          if (area > 10000) {
+            text += `<strong>面積:</strong> ${(area / 10000).toFixed(2)} ha`;
+          } else {
+            text += `<strong>面積:</strong> ${area.toFixed(2)} m²`;
+          }
+        }
+
+        return hasMeasurement ? text.trim() : null;
+      };
+
+      // Event listener for when a new shape is drawn
+      map.on('pm:create', ({ layer }) => {
+        const measurementText = formatMeasurement(layer);
+        if (measurementText) {
+          layer.bindPopup(measurementText).openPopup();
+        }
+        
+        // Add a listener to this specific layer for when it's edited
+        layer.on('pm:edit', (e) => {
+          const updatedText = formatMeasurement(e.layer);
+          if (updatedText) {
+            e.layer.setPopupContent(updatedText).openPopup();
+          }
+        });
+      });
+    }
     
     const overlayLayers = {
       "GeoJSON": geojsonLayer
