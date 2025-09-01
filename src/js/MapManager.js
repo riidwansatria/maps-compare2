@@ -2,13 +2,10 @@ import { LAYER_CONFIGS } from '../data/layers.js'
 
 /**
  * A custom Leaflet control to select and display a specific map scale.
- * This version maps scales to known, reliable Leaflet zoom levels, including fractional ones for precision.
  */
 const ScaleSelector = L.Control.extend({
   options: {
     position: 'bottomright',
-    // A mapping from the display text to a specific, functional Leaflet zoom level.
-    // Using fractional zooms to provide distinct levels of detail at high magnifications.
     scales: {
       '1:500': 19.5,
       '1:1,000': 19,
@@ -17,7 +14,7 @@ const ScaleSelector = L.Control.extend({
       '1:25,000': 15,
       '1:200,000': 12,
     },
-    mapManager: null, // Reference to the MapManager to sync both maps
+    mapManager: null,
   },
 
   onAdd: function (map) {
@@ -37,9 +34,7 @@ const ScaleSelector = L.Control.extend({
       option.text = text;
     }
 
-    // When the user selects a new scale
     L.DomEvent.on(select, 'change', (e) => {
-      // Use parseFloat to handle fractional zoom levels
       const zoomLevel = parseFloat(e.target.value);
       if (this.options.mapManager) {
         this.options.mapManager.setZoom(zoomLevel);
@@ -48,15 +43,12 @@ const ScaleSelector = L.Control.extend({
       }
     });
 
-    // Function to update the dropdown based on the map's current state
     this._updateSelect = () => {
       const currentZoom = map.getZoom();
       let bestMatch = null;
       let smallestDiff = Infinity;
 
-      // Find the closest zoom level in our list to the map's current zoom
       for (const option of select.options) {
-        // Use parseFloat to handle fractional zoom levels
         const zoomValue = parseFloat(option.value);
         const diff = Math.abs(currentZoom - zoomValue);
         if (diff < smallestDiff) {
@@ -69,9 +61,8 @@ const ScaleSelector = L.Control.extend({
       }
     };
 
-    // Listen for map movements to keep the selector accurate
     map.on('zoomend', this._updateSelect);
-    this._updateSelect(); // Set initial value
+    this._updateSelect();
 
     return container;
   },
@@ -88,23 +79,19 @@ export class MapManager {
     this.map2 = null
     this.geojsonLayer1 = null
     this.geojsonLayer2 = null
-    this.geomanLayer1 = null // Layer for Geoman drawings on map 1
-    this.geomanLayer2 = null // Layer for Geoman drawings on map 2
+    this.geomanLayer1 = null
+    this.geomanLayer2 = null
     this.syncing = true
-    this.userLocationMarker = null // To hold the marker for the user's location
+    this.userLocationMarker = null
+
+    // Bind methods for robustness
+    this.setupMapSync = this.setupMapSync.bind(this);
   }
 
-  /**
-   * Helper method to wait for a Leaflet plugin to be available.
-   * @param {string} pluginName - The name of the plugin object to check for (e.g., 'L.PM').
-   * @param {number} timeout - The maximum time to wait in milliseconds.
-   * @returns {Promise<void>}
-   */
   async _waitForLeafletPlugin(pluginName, timeout = 5000) {
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
       const check = () => {
-        // Check for nested properties like 'L.PM'
         const props = pluginName.split('.');
         let obj = window;
         const exists = props.every(prop => {
@@ -125,8 +112,8 @@ export class MapManager {
   }
 
   async initializeMaps() {
-    // Wait for the new Leaflet-Geoman plugin to be ready
     await this._waitForLeafletPlugin('L.PM');
+    // Note: No longer waiting for leafletImage, as we now use html2canvas
 
     console.log('🗺️ Initializing maps...')
     
@@ -135,44 +122,31 @@ export class MapManager {
 
     const mapOptions = {
       center: [35.703640, 139.747635],
-      zoom: 11, // Default zoom level
-      zoomSnap: 0.1, // Allow snapping to finer zoom increments
-      zoomDelta: 0.25 // Control zoom speed with mouse/buttons
+      zoom: 11,
+      zoomSnap: 0.1,
+      zoomDelta: 0.25,
+      preferCanvas: true
     };
 
-    // Initialize Map 1 with new options
-    this.map1 = L.map('mapcontainer1', {
-      ...mapOptions,
-      layers: [baseLayers1["GSI Seamless Photo"]]
-    })
+    this.map1 = L.map('mapcontainer1', { ...mapOptions, layers: [baseLayers1["GSI Seamless Photo"]] })
+    this.map2 = L.map('mapcontainer2', { ...mapOptions, layers: [baseLayers2["Google Maps"]] })
 
-    // Initialize Map 2 with new options
-    this.map2 = L.map('mapcontainer2', {
-      ...mapOptions,
-      layers: [baseLayers2["Google Maps"]]
-    })
-
-    // Create GeoJSON and Geoman layers for both maps
     this.geojsonLayer1 = L.featureGroup().addTo(this.map1);
     this.geojsonLayer2 = L.featureGroup().addTo(this.map2);
     this.geomanLayer1 = L.featureGroup().addTo(this.map1);
     this.geomanLayer2 = L.featureGroup().addTo(this.map2);
 
-    // Add controls
     this.addMapControls(this.map1, baseLayers1, this.geojsonLayer1);
     this.addMapControls(this.map2, baseLayers2, this.geojsonLayer2);
     
-    // Add geocoder to map1
     L.Control.geocoder({ defaultMarkGeocode: true }).addTo(this.map1);
 
-    // Setup map synchronization
     this.setupMapSync();
     
     console.log('✅ Maps initialized');
   }
 
   updateMapSize() {
-    console.log('🗺️ Resizing maps to fit container...');
     if (this.map1 && this.map2) {
       this.map1.invalidateSize();
       this.map2.invalidateSize();
@@ -185,58 +159,27 @@ export class MapManager {
       layers[name] = L.tileLayer(config.url, {
         attribution: config.attribution,
         maxZoom: 21,
-        maxNativeZoom: 18
+        maxNativeZoom: 18,
+        crossOrigin: 'anonymous'
       })
     })
     return layers
   }
 
-  /**
-   * Adds all necessary controls to a given map.
-   * @param {L.Map} map - The Leaflet map instance.
-   * @param {object} baseLayers - The base layers for the layer control.
-   * @param {L.FeatureGroup} geojsonLayer - The layer for uploaded GeoJSON data.
-   */
   addMapControls(map, baseLayers, geojsonLayer) {
-    L.control.scale({ 
-      maxWidth: 200, 
-      position: 'bottomright', 
-      imperial: false 
-    }).addTo(map);
+    L.control.scale({ maxWidth: 200, position: 'bottomright', imperial: false }).addTo(map);
+    new ScaleSelector({ position: 'bottomright', mapManager: this }).addTo(map);
 
-    new ScaleSelector({
-        position: 'bottomright',
-        mapManager: this
-    }).addTo(map);
-
-    const overlayLayers = {
-      "GeoJSON": geojsonLayer
-    };
-
-    // Determine which Geoman layer to use for this map
+    const overlayLayers = { "GeoJSON": geojsonLayer };
     const geomanLayer = (map === this.map1) ? this.geomanLayer1 : this.geomanLayer2;
     this._initializeGeomanForMap(map, geomanLayer);
-    
-    // Add the correct measurement layer to this map's control
     overlayLayers['計測レイヤー'] = geomanLayer;
     
-    L.control.layers(baseLayers, overlayLayers, { 
-      position: 'topleft', 
-      collapsed: true 
-    }).addTo(map);
+    L.control.layers(baseLayers, overlayLayers, { position: 'topleft', collapsed: true }).addTo(map);
   }
 
-  /**
-   * Sets up the Leaflet-Geoman controls and measurement logic for a specific map.
-   * @param {L.Map} map - The Leaflet map instance to add controls to.
-   * @param {L.FeatureGroup} geomanLayer - The layer group to add drawings to.
-   * @private
-   */
   _initializeGeomanForMap(map, geomanLayer) {
-    map.pm.setGlobalOptions({
-      layerGroup: geomanLayer
-    });
-    
+    map.pm.setGlobalOptions({ layerGroup: geomanLayer });
     map.pm.addControls({
       position: 'topleft',
       drawCircle: false,
@@ -247,21 +190,14 @@ export class MapManager {
       editMode: true,
       removalMode: true,
     });
-
     map.pm.setLang('ja');
-
-    map.pm.setPathOptions({
-      color: '#db4a37',
-      fillColor: '#db4a37',
-      fillOpacity: 0.4,
-    });
+    map.pm.setPathOptions({ color: '#db4a37', fillColor: '#db4a37', fillOpacity: 0.4 });
 
     map.on('pm:create', ({ layer }) => {
       const measurementText = this._formatMeasurement(layer);
       if (measurementText) {
         layer.bindPopup(measurementText).openPopup();
       }
-      
       layer.on('pm:edit', (e) => {
         const updatedText = this._formatMeasurement(e.layer);
         if (updatedText) {
@@ -270,33 +206,43 @@ export class MapManager {
       });
     });
   }
-
+  
   /**
-   * Calculates the geodesic area of a polygon.
-   * @param {L.LatLng[]} latLngs - The vertices of the polygon.
-   * @returns {number} The area in square meters.
-   * @private
+   * Exports the specified map as a PNG image using html2canvas.
+   * @param {string} mapId - 'map1' or 'map2'.
+   * @returns {Promise<void>}
    */
-  _calculateGeodesicArea(latLngs) {
-    const R = 6378137; // Earth's radius in meters
-    let area = 0;
-    const n = latLngs.length;
+  exportMap(mapId) {
+    return new Promise((resolve, reject) => {
+      const mapInstance = (mapId === 'map1') ? this.map1 : this.map2;
+      if (!mapInstance) {
+        return reject(new Error("Map instance not found for export."));
+      }
 
-    for (let i = 0; i < n; i++) {
-      const p1 = latLngs[i];
-      const p2 = latLngs[(i + 1) % n];
-      area += (p1.lng - p2.lng) * (Math.PI / 180) *
-              (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
-    }
-    return Math.abs(area * R * R / 2.0);
+      const mapContainer = mapInstance.getContainer();
+      const filename = `map-export-${mapId}-${new Date().toISOString().slice(0,10)}.png`;
+
+      // Use html2canvas to capture the map container element
+      html2canvas(mapContainer, {
+        useCORS: true, // This is crucial for loading cross-origin map tiles
+        allowTaint: true,
+        logging: false, // Set to true for debugging
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        resolve();
+      }).catch(err => {
+        console.error('Map export failed:', err);
+        const userFriendlyError = "Failed to capture map image. The current basemap may have security restrictions (CORS) that prevent exporting. Try a different basemap (like GSI) or check the console for more details.";
+        reject(new Error(userFriendlyError));
+      });
+    });
   }
 
-  /**
-   * Formats the measurement of a layer into a user-friendly string.
-   * @param {L.Layer} layer - The layer to measure.
-   * @returns {string|null} The formatted measurement text or null.
-   * @private
-   */
   _formatMeasurement(layer) {
     let text = '計測結果:<br>';
     let hasMeasurement = false;
@@ -305,18 +251,14 @@ export class MapManager {
       const latlngs = layer.getLatLngs();
       let distance = 0;
       const points = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-
       for (let i = 0; i < points.length - 1; i++) {
           distance += points[i].distanceTo(points[i + 1]);
       }
-      
       if (layer instanceof L.Polygon && points.length > 1) {
           distance += points[points.length - 1].distanceTo(points[0]);
       }
-
       hasMeasurement = true;
       const label = (layer instanceof L.Polygon) ? '周囲' : '距離'; 
-
       if (distance > 1000) {
           text += `<strong>${label}:</strong> ${(distance / 1000).toFixed(2)} km<br>`;
       } else {
@@ -328,7 +270,6 @@ export class MapManager {
       const latlngs = layer.getLatLngs();
       const areaLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
       const area = this._calculateGeodesicArea(areaLatLngs);
-      
       hasMeasurement = true;
       if (area > 10000) {
         text += `<strong>面積:</strong> ${(area / 10000).toFixed(2)} ha`;
@@ -340,19 +281,30 @@ export class MapManager {
     return hasMeasurement ? text.trim() : null;
   }
 
+  _calculateGeodesicArea(latLngs) {
+    const R = 6378137; // Earth's radius in meters
+    let area = 0;
+    const n = latLngs.length;
+    for (let i = 0; i < n; i++) {
+      const p1 = latLngs[i];
+      const p2 = latlngs[(i + 1) % n];
+      area += (p1.lng - p2.lng) * (Math.PI / 180) *
+              (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
+    }
+    return Math.abs(area * R * R / 2.0);
+  }
+
   setupMapSync() {
     const syncMaps = (sourceMap, targetMap) => {
       if (!this.syncing) return
       targetMap.setView(sourceMap.getCenter(), sourceMap.getZoom(), { animate: false })
     }
-
     this.map1.on('move zoomend', () => syncMaps(this.map1, this.map2))
     this.map2.on('move zoomend', () => syncMaps(this.map2, this.map1))
   }
 
   toggleSync() {
     this.syncing = !this.syncing
-    console.log('🔄 Map sync:', this.syncing ? 'ON' : 'OFF')
     return this.syncing
   }
 
@@ -361,6 +313,60 @@ export class MapManager {
       this.map1.setZoom(zoomLevel);
       this.map2.setZoom(zoomLevel);
     }
+  }
+
+  async loadGeoJSON(geojsonData) {
+    const wasSyncing = this.syncing;
+    this.syncing = false; // Turn off sync to manually position maps
+
+    try {
+      if (!this.geojsonLayer1 || !this.geojsonLayer2) {
+        console.error("GeoJSON layers are not initialized.");
+        return false;
+      }
+      this.geojsonLayer1.clearLayers();
+      this.geojsonLayer2.clearLayers();
+
+      const geoJsonOptions = {
+        coordsToLatLng: function (coords) {
+          return new L.LatLng(coords[1], coords[0], coords[2]);
+        }
+      };
+
+      const layer1 = L.geoJSON(geojsonData, geoJsonOptions);
+      const layer2 = L.geoJSON(geojsonData, geoJsonOptions);
+
+      this.geojsonLayer1.addLayer(layer1);
+      this.geojsonLayer2.addLayer(layer2);
+
+      const bounds = layer1.getBounds();
+      if (bounds && bounds.isValid()) {
+        // THE FIX: Explicitly set the view on both maps while syncing is off.
+        this.map1.fitBounds(bounds);
+        this.map2.fitBounds(bounds);
+      } else {
+        console.warn("GeoJSON loaded, but bounds are not valid. Skipping fitBounds.");
+      }
+
+      console.log('✅ GeoJSON loaded to maps');
+      return true;
+    } catch (error) {
+      console.error('❌ An error occurred inside MapManager.loadGeoJSON:', error);
+      return false;
+    } finally {
+      // Re-enable syncing only after both maps are correctly positioned.
+      this.syncing = wasSyncing;
+    }
+  }
+
+  clearGeoJSON() {
+    if (this.geojsonLayer1) this.geojsonLayer1.clearLayers();
+    if (this.geojsonLayer2) this.geojsonLayer2.clearLayers();
+    
+    this.map1.setView([35.703640, 139.747635], 11);
+    this.map2.setView([35.703640, 139.747635], 11);
+    
+    console.log('🗑️ GeoJSON cleared');
   }
 
   centerOnUserLocation() {
@@ -383,7 +389,7 @@ export class MapManager {
 
           this.userLocationMarker = L.marker(latLng)
             .addTo(this.map1)
-            .bindPopup("<b>Your Location</b><br>You are approximately here.")
+            .bindPopup("<b>現在地</b><br>おおよその位置です")
             .openPopup();
           
           L.marker(latLng).addTo(this.map2);
@@ -392,47 +398,22 @@ export class MapManager {
         },
         (error) => {
           console.error('❌ Geolocation error:', error);
-          let message = "An unknown error occurred while getting your location.";
-          // ... error handling
+          let message = "位置情報の取得中に不明なエラーが発生しました。";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              message = "位置情報へのアクセスが拒否されました。";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              message = "位置情報が利用できません。";
+              break;
+            case error.TIMEOUT:
+              message = "位置情報の取得がタイムアウトしました。";
+              break;
+          }
           reject(new Error(message));
         }
       );
     });
-  }
-
-  async loadGeoJSON(geojsonData) {
-    try {
-      this.geojsonLayer1.clearLayers()
-      this.geojsonLayer2.clearLayers()
-
-      const layer1 = L.geoJSON(geojsonData)
-      const layer2 = L.geoJSON(geojsonData)
-
-      this.geojsonLayer1.addLayer(layer1)
-      this.geojsonLayer2.addLayer(layer2)
-
-      const bounds = layer1.getBounds()
-      if (bounds.isValid()) {
-        this.map1.fitBounds(bounds)
-        this.map2.fitBounds(bounds)
-      }
-
-      console.log('✅ GeoJSON loaded to maps')
-      return true
-    } catch (error) {
-      console.error('❌ Failed to load GeoJSON:', error)
-      return false
-    }
-  }
-
-  clearGeoJSON() {
-    this.geojsonLayer1.clearLayers()
-    this.geojsonLayer2.clearLayers()
-    
-    this.map1.setView([35.703640, 139.747635], 11)
-    this.map2.setView([35.703640, 139.747635], 11)
-    
-    console.log('🗑️ GeoJSON cleared')
   }
 
   getDebugInfo() {
@@ -443,9 +424,8 @@ export class MapManager {
     return {
       initialized: true,
       syncing: this.syncing,
-      center: `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`,
+      center: `緯度: ${center.lat.toFixed(4)}, 経度: ${center.lng.toFixed(4)}`,
       zoom: this.map1.getZoom()
     };
   }
 }
-
