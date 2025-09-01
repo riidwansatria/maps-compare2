@@ -1,10 +1,10 @@
 // main.js - Application Entry Point
-import './src/css/main.css'
-import './src/css/components.css'
-import './src/css/responsive.css'
+import "/src/css/main.css"
+import "/src/css/components.css"
+import "/src/css/responsive.css"
 
-import { MapApplication } from './src/js/MapApplication.js'
-import { ErrorHandler } from './src/js/utils/ErrorHandler.js'
+import { MapApplication } from "/src/js/MapApplication.js"
+import { ErrorHandler } from "/src/js/utils/ErrorHandler.js"
 
 // Global error handling
 window.addEventListener('error', (event) => {
@@ -28,7 +28,8 @@ function showErrorScreen() {
 function showApp() {
   document.getElementById('loading-screen').style.display = 'none'
   document.getElementById('error-screen').style.display = 'none'
-  document.getElementById('app').style.display = 'block'
+  // THE FIX IS HERE: Changed 'block' to 'flex' to match the Tailwind layout
+  document.getElementById('app').style.display = 'flex'
 }
 
 // Initialize application
@@ -61,7 +62,10 @@ async function initializeApp() {
     const app = new MapApplication()
     await app.init()
     
+    // Show the app and resize the maps
     showApp()
+    app.mapManager.updateMapSize(); // Call the resize function AFTER the app is visible
+    
     console.log('✅ GeoMap Viewer ready!')
     
   } catch (error) {

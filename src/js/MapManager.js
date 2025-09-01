@@ -7,54 +7,51 @@ export class MapManager {
     this.geojsonLayer1 = null
     this.geojsonLayer2 = null
     this.syncing = true
+    this.userLocationMarker = null;
   }
 
   async initializeMaps() {
-    console.log('🗺️ Initializing maps...')
+    console.log('🗺️ Initializing maps...');
     
-    const baseLayers1 = this.createBaseLayers()
-    const baseLayers2 = this.createBaseLayers()
+    const baseLayers1 = this.createBaseLayers();
+    const baseLayers2 = this.createBaseLayers();
 
-    // Initialize Map 1
     this.map1 = L.map('mapcontainer1', {
       center: [35.703640, 139.747635],
       zoom: 10,
       layers: [baseLayers1["GSI Seamless Photo"]]
-    })
+    });
 
-    // Initialize Map 2  
     this.map2 = L.map('mapcontainer2', {
       center: [35.703640, 139.747635],
       zoom: 10,
       layers: [baseLayers2["Google Maps"]]
-    })
+    });
 
-    // Create GeoJSON layers
     this.geojsonLayer1 = L.featureGroup().addTo(this.map1);
     this.geojsonLayer2 = L.featureGroup().addTo(this.map2);
 
-    // Add controls
     this.addMapControls(this.map1, baseLayers1, this.geojsonLayer1);
     this.addMapControls(this.map2, baseLayers2, this.geojsonLayer2);
     
-    // Add geocoder to map1
     L.Control.geocoder({ defaultMarkGeocode: true }).addTo(this.map1);
 
-    // Setup map synchronization
     this.setupMapSync();
     
     console.log('✅ Maps initialized');
-
-    // ====================================================================
-    // THE FIX: Invalidate map size after a short delay
-    // This gives the browser time to render the CSS layout and ensures
-    // Leaflet knows the correct size of its container.
-    // ====================================================================
-    setTimeout(() => {
+    // The old setTimeout has been removed from here.
+  }
+  
+  /**
+   * A dedicated method to resize the maps once their container is visible.
+   * This fixes the issue where maps don't render correctly on initial load.
+   */
+  updateMapSize() {
+    console.log('🗺️ Resizing maps to fit visible container...');
+    if (this.map1 && this.map2) {
       this.map1.invalidateSize();
       this.map2.invalidateSize();
-      console.log('🗺️ Map sizes re-validated.');
-    }, 100);
+    }
   }
 
   createBaseLayers() {
@@ -74,12 +71,10 @@ export class MapManager {
       imperial: false 
     }).addTo(map)
     
-    // Create an object for the overlay layers
     const overlayLayers = {
       "GeoJSON": geojsonLayer
     };
 
-    // Add the layer control with both base and overlay layers
     L.control.layers(baseLayers, overlayLayers, { 
       position: 'topleft', 
       collapsed: true 
@@ -102,27 +97,48 @@ export class MapManager {
     return this.syncing
   }
 
+  centerOnUserLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        return reject(new Error("Geolocation is not supported by your browser."));
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const latLng = [latitude, longitude];
+          this.map1.setView(latLng, 16);
+          this.map2.setView(latLng, 16);
+          if (this.userLocationMarker) {
+            this.userLocationMarker.remove();
+          }
+          this.userLocationMarker = L.marker(latLng)
+            .addTo(this.map1)
+            .bindPopup("<b>Your Location</b>")
+            .openPopup();
+          
+          L.marker(latLng).addTo(this.map2);
+          resolve("Map centered on your location.");
+        },
+        (error) => {
+          reject(error);
+        }
+      );
+    });
+  }
+
   async loadGeoJSON(geojsonData) {
     try {
-      // Clear existing layers
       this.geojsonLayer1.clearLayers()
       this.geojsonLayer2.clearLayers()
-
-      // Add new GeoJSON to both maps
       const layer1 = L.geoJSON(geojsonData)
       const layer2 = L.geoJSON(geojsonData)
-
       this.geojsonLayer1.addLayer(layer1)
       this.geojsonLayer2.addLayer(layer2)
-
-      // Fit maps to bounds
       const bounds = layer1.getBounds()
       if (bounds.isValid()) {
         this.map1.fitBounds(bounds)
         this.map2.fitBounds(bounds)
       }
-
-      console.log('✅ GeoJSON loaded to maps')
       return true
     } catch (error) {
       console.error('❌ Failed to load GeoJSON:', error)
@@ -133,18 +149,10 @@ export class MapManager {
   clearGeoJSON() {
     this.geojsonLayer1.clearLayers()
     this.geojsonLayer2.clearLayers()
-    
-    // Reset to default view
     this.map1.setView([35.703640, 139.747635], 10)
     this.map2.setView([35.703640, 139.747635], 10)
-    
-    console.log('🗑️ GeoJSON cleared')
   }
 
-  /**
-   * Get debug information about the map state.
-   * @returns {Object} Debug information
-   */
   getDebugInfo() {
     if (!this.map1) {
       return { initialized: false };

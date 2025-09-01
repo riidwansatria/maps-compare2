@@ -1,4 +1,3 @@
-// src/js/MapApplication.js
 import { MapManager } from './MapManager.js'
 import { StorageManager } from './StorageManager.js'
 import { UIController } from './UIController.js'
@@ -15,23 +14,17 @@ export class MapApplication {
     this.handleClearData = this.handleClearData.bind(this)
     this.handleSyncToggle = this.handleSyncToggle.bind(this)
     this.handleDebugInfo = this.handleDebugInfo.bind(this)
+    this.handleExportData = this.handleExportData.bind(this)
   }
 
   async init() {
     try {
       console.log('🚀 Initializing MapApplication...')
       
-      // 1. Create UI elements
       this.uiController.createControlPanel()
-      
-      // 2. Initialize maps
       await this.mapManager.initializeMaps()
-      
-      // 3. Setup event listeners with proper context
       this.setupEventListeners()
-      
-      // 4. Load any saved data
-      await this.loadSavedData()
+      // Note: loadSavedData is now called from finalizeSetup() to prevent race conditions
       
       console.log('✅ MapApplication initialized successfully')
       
@@ -41,12 +34,25 @@ export class MapApplication {
     }
   }
 
+  /**
+   * Finalizes the application setup after the UI is visible.
+   * This should be called from main.js after the app container is displayed.
+   */
+  async finalizeSetup() {
+    // 1. Ensure maps are correctly sized now that the container is visible
+    this.mapManager.updateMapSize();
+    
+    // 2. Load any persisted data, which will now zoom correctly
+    await this.loadSavedData();
+  }
+
   setupEventListeners() {
     const handlers = {
       onGeoJSONUpload: this.handleGeoJSONUpload,
       onClearData: this.handleClearData,
       onSyncToggle: this.handleSyncToggle,
-      onDebugInfo: this.handleDebugInfo
+      onDebugInfo: this.handleDebugInfo,
+      onExportData: this.handleExportData
     }
     
     this.uiController.setupEventListeners(handlers)
@@ -55,7 +61,7 @@ export class MapApplication {
 
   async loadSavedData() {
     try {
-      const savedData = this.storageManager.load()
+      const savedData = await this.storageManager.load() // Now async
       if (savedData && savedData.filename && savedData.geojson) {
         console.log('📁 Found saved GeoJSON:', savedData.filename)
         
@@ -65,7 +71,7 @@ export class MapApplication {
           this.uiController.updateStatus(`復元: ${savedData.filename} (${timestamp})`)
         } else {
           this.uiController.updateStatus('復元に失敗しました')
-          this.storageManager.clear() // Clear corrupted data
+          await this.storageManager.clear()
         }
       } else {
         this.uiController.updateStatus('GeoJSONファイルをアップロードしてください')
@@ -78,42 +84,33 @@ export class MapApplication {
 
   async handleGeoJSONUpload(file) {
     try {
-      console.log('📁 Processing file upload:', file.name)
-      this.uiController.updateStatus('ファイルを読み込み中...')
+      this.uiController.updateStatus('ファイルを読み込み中...');
       
-      // Read file
-      const fileContent = await this.readFile(file)
-      const geojson = JSON.parse(fileContent)
-      
-      // Validate GeoJSON (basic)
-      this.validateGeoJSON(geojson)
-      
-      // Load to maps
-      const success = await this.mapManager.loadGeoJSON(geojson)
+      const geojson = await this.storageManager.importFromFile(file);
+
+      const success = await this.mapManager.loadGeoJSON(geojson);
       if (!success) {
-        throw new Error('Failed to load GeoJSON to maps')
+        throw new Error('Failed to load GeoJSON to maps');
       }
       
-      // Save to storage
-      this.storageManager.save(geojson, file.name)
+      await this.storageManager.save(geojson, file.name);
       
-      this.uiController.updateStatus(`読み込み・保存完了: ${file.name}`)
-      console.log('✅ GeoJSON upload completed successfully')
+      this.uiController.updateStatus(`読み込み・保存完了: ${file.name}`);
+      console.log('✅ GeoJSON upload completed successfully');
       
     } catch (error) {
-      ErrorHandler.logError(error, 'handleGeoJSONUpload')
-      this.uiController.updateStatus('読み込みエラー')
-      this.uiController.showError('GeoJSONファイルの読み込みに失敗しました。正しい形式か確認してください。')
+      ErrorHandler.logError(error, 'handleGeoJSONUpload');
+      this.uiController.showError(error.message || 'GeoJSONファイルの読み込みに失敗しました。');
     }
   }
 
-  handleClearData() {
+  async handleClearData() {
     console.log('🗑️ Clear data requested')
     
     if (confirm('GeoJSONデータをクリアしますか？')) {
       try {
-        this.mapManager.clearGeoJSON()
-        this.storageManager.clear()
+        await this.mapManager.clearGeoJSON()
+        await this.storageManager.clear()
         this.uiController.clearFileInput()
         this.uiController.updateStatus('データをクリアしました')
         
@@ -144,20 +141,9 @@ export class MapApplication {
   handleDebugInfo() {
     try {
       console.log('🔍 Debug info requested')
-      const storageInfo = this.storageManager.getStorageInfo()
-      const mapInfo = this.mapManager.getDebugInfo()
-      
-      const message = `
-🗺️ Maps: ${mapInfo.initialized ? '初期化済み' : '未初期化'}
-📁 Storage: ${storageInfo.exists ? 'データあり' : 'データなし'}
-💾 Size: ${storageInfo.size}
-🔄 Sync: ${mapInfo.syncing ? 'オン' : 'オフ'}
-📍 Center: ${mapInfo.center}
-🔍 Zoom: ${mapInfo.zoom}
-      `.trim()
-      
-      alert(message)
-      console.log('Debug Info:', { storageInfo, mapInfo })
+      const info = this.storageManager.getStorageInfo();
+      this._showDebugModal(info); // Replaced alert with custom modal
+      console.log('Debug Info:', info);
       
     } catch (error) {
       ErrorHandler.logError(error, 'handleDebugInfo')
@@ -165,25 +151,54 @@ export class MapApplication {
     }
   }
 
-  // Utility methods
-  readFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => resolve(e.target.result)
-      reader.onerror = (e) => reject(new Error('File reading failed'))
-      reader.readAsText(file)
-    })
+  async handleExportData() {
+    try {
+      await this.storageManager.exportData('geojson');
+    } catch (error) {
+      ErrorHandler.logError(error, 'handleExportData');
+      this.uiController.showError(error.message || 'データのエクスポートに失敗しました。');
+    }
   }
 
-  validateGeoJSON(geojson) {
-    if (!geojson || typeof geojson !== 'object') {
-      throw new Error('Invalid GeoJSON: Not an object')
-    }
+  // --- NEW PRIVATE METHOD FOR DEBUG UI ---
+  _showDebugModal(info) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    // THE FIX: Increased z-index to ensure it's on top of all other elements
+    overlay.className = 'fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4';
     
-    if (!['FeatureCollection', 'Feature', 'GeometryCollection'].includes(geojson.type)) {
-      throw new Error('Invalid GeoJSON: Invalid type')
-    }
+    // Create modal panel
+    const modal = document.createElement('div');
+    modal.className = 'bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col';
+
+    // Modal Header
+    const header = document.createElement('div');
+    header.className = 'p-4 border-b flex justify-between items-center';
+    header.innerHTML = `<h2 class="text-lg font-semibold">Storage Information</h2><button id="close-debug-modal" class="text-2xl font-light">&times;</button>`;
     
-    return true
+    // Modal Body (Scrollable)
+    const body = document.createElement('div');
+    body.className = 'p-4 overflow-y-auto';
+    
+    // Format info into a <pre> tag for nice formatting
+    const pre = document.createElement('pre');
+    pre.className = 'text-xs bg-gray-100 p-3 rounded-md';
+    pre.textContent = JSON.stringify(info, null, 2);
+    body.appendChild(pre);
+
+    // Assemble modal
+    modal.appendChild(header);
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Add close functionality
+    const closeModal = () => document.body.removeChild(overlay);
+    overlay.querySelector('#close-debug-modal').onclick = closeModal;
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        closeModal();
+      }
+    };
   }
 }

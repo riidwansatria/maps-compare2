@@ -1,4 +1,3 @@
-// src/js/StorageManager.js
 /**
  * StorageManager - Handles persistent data storage for GeoJSON files
  * Supports localStorage with sessionStorage fallback and comprehensive error handling
@@ -552,7 +551,6 @@ export class StorageManager {
 
   estimateLocalStorageQuota() {
     try {
-      const testKey = 'quota-test'
       let used = 0
       
       // Calculate current usage

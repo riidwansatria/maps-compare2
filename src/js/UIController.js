@@ -1,7 +1,6 @@
-// src/js/UIController.js
 /**
- * UIController - Manages all user interface interactions and feedback
- * Handles control panel, notifications, file uploads, and user feedback
+ * UIController - Manages all user interface interactions and feedback
+ * Handles control panel, notifications, file uploads, and user feedback
  */
 export class UIController {
   constructor() {
@@ -17,15 +16,15 @@ export class UIController {
     // Bind ALL event handler methods to maintain context
     this.handleFileSelect = this.handleFileSelect.bind(this);
     this.handleDragOver = this.handleDragOver.bind(this);
-    this.handleDragLeave = this.handleDragLeave.bind(this); 
+    this.handleDragLeave = this.handleDragLeave.bind(this);
     this.handleDrop = this.handleDrop.bind(this);
-    this.preventDefaults = this.preventDefaults.bind(this); 
+    this.preventDefaults = this.preventDefaults.bind(this);
   }
 
 
   /**
-   * Create the main control panel with all UI elements
-   */
+   * Create the main control panel with all UI elements
+   */
   createControlPanel() {
     try {
       console.log('🎨 Creating control panel...')
@@ -36,7 +35,7 @@ export class UIController {
       // Create main panel container
       this.controlPanel = document.createElement('div')
       this.controlPanel.id = 'control-panel'
-      this.controlPanel.className = 'control-panel'
+      // Note: The main class is now handled by Tailwind in the getControlPanelHTML method
       
       // Build panel content
       this.controlPanel.innerHTML = this.getControlPanelHTML()
@@ -64,9 +63,9 @@ export class UIController {
   }
 
   /**
-   * Setup event listeners for all UI controls
-   * @param {Object} handlers - Event handler functions
-   */
+   * Setup event listeners for all UI controls
+   * @param {Object} handlers - Event handler functions
+   */
   setupEventListeners(handlers) {
     try {
       console.log('🎛️ Setting up UI event listeners...')
@@ -143,53 +142,69 @@ export class UIController {
   }
 
   /**
-   * Update the sync button state and appearance
-   * @param {boolean} isEnabled - Whether sync is enabled
-   */
+   * Update the sync button state and appearance
+   * @param {boolean} isEnabled - Whether sync is enabled
+   */
   updateSyncButton(isEnabled) {
     if (!this.elements.syncBtn) return
     
-    this.elements.syncBtn.textContent = isEnabled ? '同期オン' : '同期オフ'
-    this.elements.syncBtn.className = `btn ${isEnabled ? 'btn--secondary' : 'btn--outline'}`
+    // Update text content
+    const textElement = this.elements.syncBtn.querySelector('span:last-child');
+    if (textElement) {
+        textElement.textContent = isEnabled ? '同期オン' : '同期オフ';
+    }
+
+    // Update class for styling
+    this.elements.syncBtn.className = isEnabled 
+      ? 'flex items-center justify-center gap-2 px-3 py-2 border rounded-md text-sm font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-blue-600 text-white hover:bg-blue-700'
+      : 'flex items-center justify-center gap-2 px-3 py-2 border rounded-md text-sm font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-transparent text-gray-500 border-gray-300 hover:bg-gray-100';
     
     // Add visual indicator
     const indicator = this.elements.syncBtn.querySelector('.sync-indicator')
     if (indicator) {
-      indicator.className = `sync-indicator ${isEnabled ? 'sync-indicator--on' : 'sync-indicator--off'}`
+      indicator.className = `sync-indicator w-2 h-2 rounded-full transition-colors duration-300 ease-in-out ${isEnabled ? 'bg-green-400 shadow-[0_0_5px_theme(colors.green.400)]' : 'bg-gray-400'}`
     }
   }
 
   /**
-   * Update status message with auto-clear
-   * @param {string} message - Status message to display
-   * @param {string} type - Message type (info, success, warning, error)
-   * @param {number} duration - Display duration in milliseconds
-   */
+   * Update status message with auto-clear
+   * @param {string} message - Status message to display
+   * @param {string} type - Message type (info, success, warning, error)
+   * @param {number} duration - Display duration in milliseconds
+   */
   updateStatus(message, type = 'info', duration = 5000) {
     if (!this.elements.statusDiv) return
     
     console.log(`📢 Status (${type}):`, message)
     
-    this.elements.statusDiv.textContent = message
-    this.elements.statusDiv.className = `status-message status-message--${type}`
+    this.elements.statusDiv.textContent = message;
+
+    const typeClasses = {
+        success: 'text-green-600',
+        error: 'text-red-600',
+        warning: 'text-yellow-600',
+        info: 'text-blue-600'
+    };
+    
+    this.elements.statusDiv.className = `text-sm text-center min-h-[18px] transition-colors duration-300 ${typeClasses[type] || 'text-gray-500'}`;
     
     // Auto-clear after duration
     if (duration > 0) {
       setTimeout(() => {
         if (this.elements.statusDiv) {
           this.elements.statusDiv.textContent = ''
-          this.elements.statusDiv.className = 'status-message'
+          this.elements.statusDiv.className = 'text-sm text-center min-h-[18px] text-gray-500'
         }
       }, duration)
     }
   }
 
   /**
-   * Show toast notification
-   * @param {string} message - Toast message
-   * @param {string} type - Toast type (success, error, warning, info)
-   * @param {number} duration - Display duration in milliseconds
-   */
+   * Show toast notification
+   * @param {string} message - Toast message
+   * @param {string} type - Toast type (success, error, warning, info)
+   * @param {number} duration - Display duration in milliseconds
+   */
   showToast(message, type = 'info', duration = 4000) {
     try {
       const toast = this.createToastElement(message, type)
@@ -205,10 +220,10 @@ export class UIController {
   }
 
   /**
-   * Show error notification with details
-   * @param {string} message - Error message
-   * @param {Object} details - Additional error details
-   */
+   * Show error notification with details
+   * @param {string} message - Error message
+   * @param {Object} details - Additional error details
+   */
   showError(message, details = null) {
     console.error('❌ UI Error:', message, details)
     
@@ -222,9 +237,9 @@ export class UIController {
   }
 
   /**
-   * Show success notification
-   * @param {string} message - Success message
-   */
+   * Show success notification
+   * @param {string} message - Success message
+   */
   showSuccess(message) {
     console.log('✅ UI Success:', message)
     this.showToast(message, 'success')
@@ -232,8 +247,8 @@ export class UIController {
   }
 
   /**
-   * Clear the file input
-   */
+   * Clear the file input
+   */
   clearFileInput() {
     if (this.elements.fileInput) {
       this.elements.fileInput.value = ''
@@ -243,9 +258,9 @@ export class UIController {
   }
 
   /**
-   * Set loading state for the entire UI
-   * @param {boolean} loading - Whether app is loading
-   */
+   * Set loading state for the entire UI
+   * @param {boolean} loading - Whether app is loading
+   */
   setLoading(loading) {
     this.isLoading = loading
     
@@ -272,8 +287,8 @@ export class UIController {
   }
 
   /**
-   * Update file input label with current file info
-   */
+   * Update file input label with current file info
+   */
   updateFileInputLabel() {
     const label = this.elements.fileInputLabel
     if (!label) return
@@ -281,15 +296,15 @@ export class UIController {
     if (this.currentFile) {
       const size = this.formatBytes(this.currentFile.size)
       label.innerHTML = `
-        <span class="file-icon">📁</span>
-        <span class="file-info">
-          <span class="file-name">${this.truncateFilename(this.currentFile.name, 20)}</span>
-          <span class="file-size">(${size})</span>
-        </span>
+        <span class="text-xl">📁</span>
+        <div class="flex flex-col">
+            <span class="font-semibold text-sm">${this.truncateFilename(this.currentFile.name, 20)}</span>
+            <span class="text-xs text-gray-500">(${size})</span>
+        </div>
       `
     } else {
       label.innerHTML = `
-        <span class="file-icon">📁</span>
+        <span class="text-xl">📁</span>
         <span>GeoJSONを選択</span>
       `
     }
@@ -307,62 +322,70 @@ export class UIController {
 
   getControlPanelHTML() {
     return `
-      <div class="control-panel__header">
-        <h3 class="control-panel__title">
-          <span class="title-icon">🗺️</span>
-          航空写真比較ツール
-        </h3>
-        <div class="loading-indicator" style="display: none;">
-          <div class="spinner"></div>
+      <div class="bg-white/95 backdrop-blur-md rounded-lg shadow-lg p-3 border border-gray-200 flex flex-col gap-5 w-64">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+          <h3 class="m-0 text-lg font-semibold flex items-center gap-2">
+            <span class="text-xl">🗺️</span>
+            GeoMap Viewer
+          </h3>
+          <div class="loading-indicator" style="display: none;">
+            <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
         </div>
-      </div>
-      
-      <div class="control-panel__section">
-        <label class="control-label">マップ同期</label>
-        <button id="syncToggleBtn" class="btn btn--secondary" title="Toggle map synchronization">
-          <span class="sync-indicator sync-indicator--on"></span>
-          同期オン
-        </button>
-      </div>
-      
-      <div class="control-panel__section">
-        <label class="control-label">ファイル操作</label>
-        <div class="file-input-wrapper">
-          <input type="file" id="geojsonInput" accept=".geojson,.json" class="file-input">
-          <label for="geojsonInput" id="fileInputLabel" class="file-input-label">
-            <span class="file-icon">📁</span>
-            <span>GeoJSONを選択</span>
-          </label>
-        </div>
-        <div class="file-actions">
-          <button id="clearBtn" class="btn btn--danger btn--small" title="Clear all GeoJSON data">
-            <span class="btn-icon">🗑️</span>
-            クリア
-          </button>
-          <button id="exportBtn" class="btn btn--outline btn--small" title="Export current data">
-            <span class="btn-icon">📥</span>
-            エクスポート
+        
+        <!-- Map Sync Section -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-semibold text-gray-500 uppercase m-0">マップ同期</label>
+          <button id="syncToggleBtn" class="flex items-center justify-center gap-2 px-3 py-2 border rounded-md text-sm font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-blue-600 text-white hover:bg-blue-700" title="Toggle map synchronization">
+            <span class="sync-indicator w-2 h-2 rounded-full transition-colors duration-300 ease-in-out bg-green-400 shadow-[0_0_5px_theme(colors.green.400)]"></span>
+            <span>同期オン</span>
           </button>
         </div>
-      </div>
-      
-      <div class="control-panel__section">
-        <label class="control-label">デバッグ</label>
-        <button id="debugBtn" class="btn btn--outline btn--small" title="Show storage and debug information">
-          <span class="btn-icon">🔍</span>
-          ストレージ情報
-        </button>
-      </div>
-      
-      <div class="control-panel__status">
-        <div id="statusDiv" class="status-message"></div>
-      </div>
-      
-      <!-- Drag and Drop Overlay -->
-      <div id="dropOverlay" class="drop-overlay" style="display: none;">
-        <div class="drop-message">
-          <span class="drop-icon">📁</span>
-          <span>GeoJSONファイルをドロップ</span>
+        
+        <!-- File Operations Section -->
+        <div class="flex flex-col gap-2">
+          <label class="control-label text-xs font-semibold text-gray-500 uppercase m-0">ファイル操作</label>
+          <div class="relative">
+            <input type="file" id="geojsonInput" accept=".geojson,.json" class="opacity-0 w-px h-px absolute -z-10">
+            <label for="geojsonInput" id="fileInputLabel" class="flex items-center gap-2.5 p-2.5 border-2 border-dashed border-gray-300 rounded-md bg-gray-50 cursor-pointer transition-all duration-200 ease-in-out hover:border-blue-500 hover:bg-blue-50">
+              <span class="text-xl">📁</span>
+              <span>GeoJSONを選択</span>
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="clearBtn" class="flex items-center justify-center gap-1 px-2 py-1.5 border rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-red-600 text-white hover:bg-red-700" title="Clear all GeoJSON data">
+              <span>🗑️</span>
+              クリア
+            </button>
+            <button id="exportBtn" class="flex items-center justify-center gap-1 px-2 py-1.5 border rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-transparent text-gray-500 border-gray-300 hover:bg-gray-100" title="Export current data">
+              <span>📥</span>
+              エクスポート
+            </button>
+          </div>
+        </div>
+        
+        <!-- Debug Section -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-semibold text-gray-500 uppercase m-0">デバッグ</label>
+          <button id="debugBtn" class="flex items-center justify-center gap-1 px-2 py-1.5 border rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 ease-in-out bg-transparent text-gray-500 border-gray-300 hover:bg-gray-100" title="Show storage and debug information">
+            <span>🔍</span>
+            ストレージ情報
+          </button>
+        </div>
+        
+        <!-- Status Area -->
+        <div class="text-center min-h-[18px]">
+          <div id="statusDiv" class="text-sm text-gray-500"></div>
+        </div>
+        
+        <!-- Drag and Drop Overlay (Managed by JS) -->
+        <div id="dropOverlay" class="fixed inset-0 bg-black/60 z-[9999] hidden justify-center items-center pointer-events-none">
+          <div class="text-white text-2xl font-semibold py-5 px-10 border-2 border-dashed border-white rounded-lg bg-black/20 flex items-center gap-4">
+            <span class="text-3xl">📁</span>
+            <span>GeoJSONファイルをドロップ</span>
+          </div>
         </div>
       </div>
     `
@@ -471,14 +494,16 @@ export class UIController {
   handleDragOver(e) {
     // Use the cached element reference
     if (this.elements.dropOverlay) {
-      this.elements.dropOverlay.style.display = 'flex';
+        this.elements.dropOverlay.classList.remove('hidden');
+        this.elements.dropOverlay.classList.add('flex');
     }
   }
 
   handleDragLeave(e) {
     if (e.relatedTarget === null) { // A better way to detect leaving the window
       if (this.elements.dropOverlay) {
-        this.elements.dropOverlay.style.display = 'none';
+        this.elements.dropOverlay.classList.add('hidden');
+        this.elements.dropOverlay.classList.remove('flex');
       }
     }
   }
@@ -486,7 +511,8 @@ export class UIController {
   async handleDrop(e) {
     // Use the cached element reference
     if (this.elements.dropOverlay) {
-      this.elements.dropOverlay.style.display = 'none';
+        this.elements.dropOverlay.classList.add('hidden');
+        this.elements.dropOverlay.classList.remove('flex');
     }
     
     const files = e.dataTransfer.files;
@@ -520,14 +546,22 @@ export class UIController {
 
   createToastElement(message, type) {
     const toast = document.createElement('div')
-    toast.className = `toast toast--${type}`
+    
+    const typeClasses = {
+        success: 'border-green-500',
+        error: 'border-red-500',
+        warning: 'border-yellow-500',
+        info: 'border-blue-500'
+    };
+
+    toast.className = `bg-white rounded-lg shadow-lg p-4 max-w-sm border-l-4 ${typeClasses[type] || 'border-gray-500'} animate-slideIn`;
     
     const icon = this.getToastIcon(type)
     toast.innerHTML = `
-      <div class="toast__content">
-        <span class="toast__icon">${icon}</span>
-        <span class="toast__message">${message}</span>
-        <button class="toast__close" onclick="this.parentElement.parentElement.remove()">×</button>
+      <div class="flex items-center gap-3">
+        <span class="text-xl">${icon}</span>
+        <span class="flex-grow text-sm">${message}</span>
+        <button class="text-gray-400 hover:text-gray-800" onclick="this.parentElement.parentElement.remove()">×</button>
       </div>
     `
     
@@ -542,7 +576,7 @@ export class UIController {
     }
     
     // Limit number of toasts
-    const existingToasts = container.querySelectorAll('.toast')
+    const existingToasts = container.querySelectorAll('div') // more generic selector
     if (existingToasts.length >= this.maxToasts) {
       existingToasts[0].remove()
     }
@@ -552,8 +586,8 @@ export class UIController {
     // Auto-remove after duration
     setTimeout(() => {
       if (toast.parentNode) {
-        toast.style.animation = 'slideOut 0.3s ease forwards'
-        setTimeout(() => toast.remove(), 300)
+        toast.classList.add('animate-slideOut'); // Add slide out animation class
+        setTimeout(() => toast.remove(), 300) // Remove from DOM after animation
       }
     }, duration)
   }
@@ -591,9 +625,9 @@ export class UIController {
   }
 
   /**
-   * Update file statistics display
-   * @param {Object} stats - File statistics
-   */
+   * Update file statistics display
+   * @param {Object} stats - File statistics
+   */
   updateFileStats(stats) {
     const statsElement = this.elements.statusDiv
     if (!statsElement || !stats) return
@@ -605,10 +639,10 @@ export class UIController {
   }
 
   /**
-   * Show loading spinner on specific element
-   * @param {HTMLElement} element - Element to show spinner on
-   * @param {boolean} show - Whether to show or hide spinner
-   */
+   * Show loading spinner on specific element
+   * @param {HTMLElement} element - Element to show spinner on
+   * @param {boolean} show - Whether to show or hide spinner
+   */
   showElementLoading(element, show) {
     if (!element) return
     
@@ -635,10 +669,10 @@ export class UIController {
   }
 
   /**
-   * Animate element (for feedback)
-   * @param {HTMLElement} element - Element to animate
-   * @param {string} animation - Animation class name
-   */
+   * Animate element (for feedback)
+   * @param {HTMLElement} element - Element to animate
+   * @param {string} animation - Animation class name
+   */
   animateElement(element, animation = 'pulse') {
     if (!element) return
     
@@ -649,9 +683,9 @@ export class UIController {
   }
 
   /**
-   * Get current UI state for debugging
-   * @returns {Object} Current UI state
-   */
+   * Get current UI state for debugging
+   * @returns {Object} Current UI state
+   */
   getUIState() {
     return {
       isLoading: this.isLoading,
@@ -670,8 +704,8 @@ export class UIController {
   }
 
   /**
-   * Cleanup UI resources and event listeners
-   */
+   * Cleanup UI resources and event listeners
+   */
   destroy() {
     console.log('🧹 Cleaning up UI resources...')
     
