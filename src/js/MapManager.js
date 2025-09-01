@@ -88,6 +88,8 @@ export class MapManager {
     this.map2 = null
     this.geojsonLayer1 = null
     this.geojsonLayer2 = null
+    this.geomanLayer1 = null // Layer for Geoman drawings on map 1
+    this.geomanLayer2 = null // Layer for Geoman drawings on map 2
     this.syncing = true
     this.userLocationMarker = null // To hold the marker for the user's location
   }
@@ -150,9 +152,11 @@ export class MapManager {
       layers: [baseLayers2["Google Maps"]]
     })
 
-    // Create GeoJSON layers
+    // Create GeoJSON and Geoman layers for both maps
     this.geojsonLayer1 = L.featureGroup().addTo(this.map1);
     this.geojsonLayer2 = L.featureGroup().addTo(this.map2);
+    this.geomanLayer1 = L.featureGroup().addTo(this.map1);
+    this.geomanLayer2 = L.featureGroup().addTo(this.map2);
 
     // Add controls
     this.addMapControls(this.map1, baseLayers1, this.geojsonLayer1);
@@ -180,140 +184,160 @@ export class MapManager {
     Object.entries(LAYER_CONFIGS).forEach(([name, config]) => {
       layers[name] = L.tileLayer(config.url, {
         attribution: config.attribution,
-        // It's good practice to define the max zoom supported by the tiles
         maxZoom: 21,
-        maxNativeZoom: 18 // Example: GSI tiles might go up to 18
+        maxNativeZoom: 18
       })
     })
     return layers
   }
 
+  /**
+   * Adds all necessary controls to a given map.
+   * @param {L.Map} map - The Leaflet map instance.
+   * @param {object} baseLayers - The base layers for the layer control.
+   * @param {L.FeatureGroup} geojsonLayer - The layer for uploaded GeoJSON data.
+   */
   addMapControls(map, baseLayers, geojsonLayer) {
-    // Add the standard Leaflet scale bar
     L.control.scale({ 
       maxWidth: 200, 
       position: 'bottomright', 
       imperial: false 
-    }).addTo(map)
+    }).addTo(map);
 
-    // Add our new, precise scale selector control
     new ScaleSelector({
         position: 'bottomright',
         mapManager: this
     }).addTo(map);
 
-    // Add the Leaflet-Geoman drawing/measurement controls only to the primary map (map1)
-    if (map === this.map1) {
-      map.pm.addControls({
-        position: 'topleft',
-        drawCircle: false,
-        drawCircleMarker: false,
-        drawMarker: false,
-        drawRectangle: true, // Enable rectangle for area measurement
-        cutPolygon: false,
-        editMode: true,
-        removalMode: true,
-      });
-
-      // Set the language to Japanese for a better user experience
-      map.pm.setLang('ja');
-
-      // Optional: Add custom styling to the drawing tools
-      map.pm.setPathOptions({
-        color: '#db4a37',
-        fillColor: '#db4a37',
-        fillOpacity: 0.4,
-      });
-
-      // --- Self-contained helper function for area calculation ---
-      const calculateGeodesicArea = (latLngs) => {
-        const R = 6378137; // Earth's radius in meters
-        let area = 0;
-        const n = latLngs.length;
-
-        for (let i = 0; i < n; i++) {
-          const p1 = latLngs[i];
-          const p2 = latLngs[(i + 1) % n];
-          area += (p1.lng - p2.lng) * (Math.PI / 180) *
-                  (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
-        }
-        return Math.abs(area * R * R / 2.0);
-      };
-
-      // Helper function to format measurements into a user-friendly string
-      const formatMeasurement = (layer) => {
-        let text = '計測結果:<br>';
-        let hasMeasurement = false;
-
-        // Calculate distance/perimeter for polylines AND polygons
-        if (layer instanceof L.Polyline) {
-          const latlngs = layer.getLatLngs();
-          let distance = 0;
-          
-          const points = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-
-          for (let i = 0; i < points.length - 1; i++) {
-              distance += points[i].distanceTo(points[i + 1]);
-          }
-          
-          // For polygons, add the distance from the last point back to the first
-          if (layer instanceof L.Polygon && points.length > 1) {
-              distance += points[points.length - 1].distanceTo(points[0]);
-          }
-
-          hasMeasurement = true;
-          // Use '周囲' (Perimeter) for polygons, '距離' (Distance) for lines
-          const label = (layer instanceof L.Polygon) ? '周囲' : '距離'; 
-
-          if (distance > 1000) {
-              text += `<strong>${label}:</strong> ${(distance / 1000).toFixed(2)} km<br>`;
-          } else {
-              text += `<strong>${label}:</strong> ${distance.toFixed(2)} m<br>`;
-          }
-        }
-        
-        // Calculate and format area ONLY for polygons and rectangles
-        if (layer instanceof L.Polygon) {
-          const latlngs = layer.getLatLngs();
-          const areaLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-          const area = calculateGeodesicArea(areaLatLngs);
-          
-          hasMeasurement = true;
-          if (area > 10000) {
-            text += `<strong>面積:</strong> ${(area / 10000).toFixed(2)} ha`;
-          } else {
-            text += `<strong>面積:</strong> ${area.toFixed(2)} m²`;
-          }
-        }
-
-        return hasMeasurement ? text.trim() : null;
-      };
-
-      // Event listener for when a new shape is drawn
-      map.on('pm:create', ({ layer }) => {
-        const measurementText = formatMeasurement(layer);
-        if (measurementText) {
-          layer.bindPopup(measurementText).openPopup();
-        }
-        
-        // Add a listener to this specific layer for when it's edited
-        layer.on('pm:edit', (e) => {
-          const updatedText = formatMeasurement(e.layer);
-          if (updatedText) {
-            e.layer.setPopupContent(updatedText).openPopup();
-          }
-        });
-      });
-    }
-    
     const overlayLayers = {
       "GeoJSON": geojsonLayer
     };
 
+    // Determine which Geoman layer to use for this map
+    const geomanLayer = (map === this.map1) ? this.geomanLayer1 : this.geomanLayer2;
+    this._initializeGeomanForMap(map, geomanLayer);
+    
+    // Add the correct measurement layer to this map's control
+    overlayLayers['計測レイヤー'] = geomanLayer;
+    
     L.control.layers(baseLayers, overlayLayers, { 
       position: 'topleft', 
       collapsed: true 
-    }).addTo(map)
+    }).addTo(map);
+  }
+
+  /**
+   * Sets up the Leaflet-Geoman controls and measurement logic for a specific map.
+   * @param {L.Map} map - The Leaflet map instance to add controls to.
+   * @param {L.FeatureGroup} geomanLayer - The layer group to add drawings to.
+   * @private
+   */
+  _initializeGeomanForMap(map, geomanLayer) {
+    map.pm.setGlobalOptions({
+      layerGroup: geomanLayer
+    });
+    
+    map.pm.addControls({
+      position: 'topleft',
+      drawCircle: false,
+      drawCircleMarker: false,
+      drawMarker: false,
+      drawRectangle: true,
+      cutPolygon: false,
+      editMode: true,
+      removalMode: true,
+    });
+
+    map.pm.setLang('ja');
+
+    map.pm.setPathOptions({
+      color: '#db4a37',
+      fillColor: '#db4a37',
+      fillOpacity: 0.4,
+    });
+
+    map.on('pm:create', ({ layer }) => {
+      const measurementText = this._formatMeasurement(layer);
+      if (measurementText) {
+        layer.bindPopup(measurementText).openPopup();
+      }
+      
+      layer.on('pm:edit', (e) => {
+        const updatedText = this._formatMeasurement(e.layer);
+        if (updatedText) {
+          e.layer.setPopupContent(updatedText).openPopup();
+        }
+      });
+    });
+  }
+
+  /**
+   * Calculates the geodesic area of a polygon.
+   * @param {L.LatLng[]} latLngs - The vertices of the polygon.
+   * @returns {number} The area in square meters.
+   * @private
+   */
+  _calculateGeodesicArea(latLngs) {
+    const R = 6378137; // Earth's radius in meters
+    let area = 0;
+    const n = latLngs.length;
+
+    for (let i = 0; i < n; i++) {
+      const p1 = latLngs[i];
+      const p2 = latLngs[(i + 1) % n];
+      area += (p1.lng - p2.lng) * (Math.PI / 180) *
+              (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
+    }
+    return Math.abs(area * R * R / 2.0);
+  }
+
+  /**
+   * Formats the measurement of a layer into a user-friendly string.
+   * @param {L.Layer} layer - The layer to measure.
+   * @returns {string|null} The formatted measurement text or null.
+   * @private
+   */
+  _formatMeasurement(layer) {
+    let text = '計測結果:<br>';
+    let hasMeasurement = false;
+
+    if (layer instanceof L.Polyline) {
+      const latlngs = layer.getLatLngs();
+      let distance = 0;
+      const points = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+
+      for (let i = 0; i < points.length - 1; i++) {
+          distance += points[i].distanceTo(points[i + 1]);
+      }
+      
+      if (layer instanceof L.Polygon && points.length > 1) {
+          distance += points[points.length - 1].distanceTo(points[0]);
+      }
+
+      hasMeasurement = true;
+      const label = (layer instanceof L.Polygon) ? '周囲' : '距離'; 
+
+      if (distance > 1000) {
+          text += `<strong>${label}:</strong> ${(distance / 1000).toFixed(2)} km<br>`;
+      } else {
+          text += `<strong>${label}:</strong> ${distance.toFixed(2)} m<br>`;
+      }
+    }
+    
+    if (layer instanceof L.Polygon) {
+      const latlngs = layer.getLatLngs();
+      const areaLatLngs = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      const area = this._calculateGeodesicArea(areaLatLngs);
+      
+      hasMeasurement = true;
+      if (area > 10000) {
+        text += `<strong>面積:</strong> ${(area / 10000).toFixed(2)} ha`;
+      } else {
+        text += `<strong>面積:</strong> ${area.toFixed(2)} m²`;
+      }
+    }
+
+    return hasMeasurement ? text.trim() : null;
   }
 
   setupMapSync() {
@@ -332,10 +356,6 @@ export class MapManager {
     return this.syncing
   }
 
-  /**
-   * Sets the zoom level for both maps. Can handle fractional zooms.
-   * @param {number} zoomLevel - The desired zoom level.
-   */
   setZoom(zoomLevel) {
     if (this.map1 && this.map2) {
       this.map1.setZoom(zoomLevel);
@@ -343,40 +363,29 @@ export class MapManager {
     }
   }
 
-  /**
-   * Centers the map on the user's current location.
-   * @returns {Promise<string>} A promise that resolves with a success message or rejects with an error.
-   */
   centerOnUserLocation() {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         return reject(new Error("Geolocation is not supported by your browser."));
       }
 
-      console.log('🔎 Attempting to get user location...');
-
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
           const latLng = [latitude, longitude];
-          console.log(`📍 Location found:`, latLng);
 
-          // Center both maps on the user's location with a close zoom level
           this.map1.setView(latLng, 16);
           this.map2.setView(latLng, 16);
 
-          // Remove the old marker if it exists
           if (this.userLocationMarker) {
             this.userLocationMarker.remove();
           }
 
-          // Add a new marker to indicate the user's position
           this.userLocationMarker = L.marker(latLng)
             .addTo(this.map1)
             .bindPopup("<b>Your Location</b><br>You are approximately here.")
             .openPopup();
           
-          // Also add to the second map for consistency, without the popup
           L.marker(latLng).addTo(this.map2);
 
           resolve("Map centered on your location.");
@@ -384,17 +393,7 @@ export class MapManager {
         (error) => {
           console.error('❌ Geolocation error:', error);
           let message = "An unknown error occurred while getting your location.";
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              message = "You denied the request for Geolocation.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              message = "Location information is unavailable.";
-              break;
-            case error.TIMEOUT:
-              message = "The request to get user location timed out.";
-              break;
-          }
+          // ... error handling
           reject(new Error(message));
         }
       );
@@ -403,18 +402,15 @@ export class MapManager {
 
   async loadGeoJSON(geojsonData) {
     try {
-      // Clear existing layers
       this.geojsonLayer1.clearLayers()
       this.geojsonLayer2.clearLayers()
 
-      // Add new GeoJSON to both maps
       const layer1 = L.geoJSON(geojsonData)
       const layer2 = L.geoJSON(geojsonData)
 
       this.geojsonLayer1.addLayer(layer1)
       this.geojsonLayer2.addLayer(layer2)
 
-      // Fit maps to bounds
       const bounds = layer1.getBounds()
       if (bounds.isValid()) {
         this.map1.fitBounds(bounds)
@@ -433,17 +429,12 @@ export class MapManager {
     this.geojsonLayer1.clearLayers()
     this.geojsonLayer2.clearLayers()
     
-    // Reset to default view
     this.map1.setView([35.703640, 139.747635], 11)
     this.map2.setView([35.703640, 139.747635], 11)
     
     console.log('🗑️ GeoJSON cleared')
   }
 
-  /**
-   * Get debug information about the map state.
-   * @returns {Object} Debug information
-   */
   getDebugInfo() {
     if (!this.map1) {
       return { initialized: false };
@@ -457,3 +448,4 @@ export class MapManager {
     };
   }
 }
+
