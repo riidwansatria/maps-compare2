@@ -1,7 +1,7 @@
 {
-  "name": "geomap-viewer",
+  "name": "maps-compare2",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Interactive dual-map GeoJSON viewer with GSI historical layers",
   "keywords": [
     "maps",
@@ -10,7 +10,7 @@
     "gsi",
     "japan"
   ],
-  "author": "Your Name",
+  "author": "Ridwan Satria",
   "license": "MIT",
   "type": "module",
   "scripts": {
