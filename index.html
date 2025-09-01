@@ -10,13 +10,15 @@
   <meta name="theme-color" content="#2196f3">
   <link rel="manifest" href="/manifest.json">
 
-  <!-- Preload critical resources -->
-  <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style">
-  <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script">
-
   <!-- External CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+  <!-- External Libraries (Load before the app) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+  <!-- Vite will inject the final CSS link here during build -->
 </head>
 <body class="bg-gray-100">
   <!-- Loading Screen -->
@@ -26,7 +28,7 @@
   </div>
 
   <!-- Main App Container -->
-  <div id="app" class="h-screen w-screen flex flex-col" style="display: none;">
+  <div id="app" class="h-screen w-screen flex-col" style="display: none;">
     <!-- Map Container -->
     <div id="map-container" class="flex-1 flex flex-col md:flex-row">
       <div id="mapcontainer1" class="flex-1 relative"></div>
@@ -34,7 +36,6 @@
     </div>
 
     <!-- Control Panel (will be created by JavaScript) -->
-    <!-- THE FIX IS HERE: Removed the responsive 'md:left-2.5' and 'md:w-auto' classes -->
     <div id="control-panel-container" class="absolute top-2.5 right-2.5 z-[1000]"></div>
 
     <!-- Toast Container -->
@@ -47,10 +48,6 @@
     <p class="text-gray-700">ページを再読み込みしてください。</p>
     <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">再読み込み</button>
   </div>
-
-  <!-- External Scripts -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
   <!-- App Entry Point -->
   <script type="module" src="/main.js"></script>

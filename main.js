@@ -28,7 +28,6 @@ function showErrorScreen() {
 function showApp() {
   document.getElementById('loading-screen').style.display = 'none'
   document.getElementById('error-screen').style.display = 'none'
-  // THE FIX IS HERE: Changed 'block' to 'flex' to match the Tailwind layout
   document.getElementById('app').style.display = 'flex'
 }
 
@@ -44,27 +43,16 @@ async function initializeApp() {
       })
     }
 
-    // Wait for Leaflet to be available
-    if (typeof L === 'undefined') {
-      await new Promise(resolve => {
-        const checkLeaflet = () => {
-          if (typeof L !== 'undefined') {
-            resolve()
-          } else {
-            setTimeout(checkLeaflet, 100)
-          }
-        }
-        checkLeaflet()
-      })
-    }
+    // THE FIX: The check for Leaflet is no longer needed here
+    // because the script loading order is now correct in index.html.
 
     // Initialize app
     const app = new MapApplication()
     await app.init()
     
-    // Show the app and resize the maps
+    // Show the app and finalize the setup (which includes resizing the maps)
     showApp()
-    app.mapManager.updateMapSize(); // Call the resize function AFTER the app is visible
+    await app.finalizeSetup()
     
     console.log('✅ GeoMap Viewer ready!')
     
