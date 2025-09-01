@@ -328,7 +328,7 @@ export class UIController {
         <div class="flex justify-between items-center pb-3 border-b border-gray-200">
           <h3 class="m-0 text-lg font-semibold flex items-center gap-2">
             <span class="text-xl">🗺️</span>
-            GeoMap Viewer
+            航空写真比較ツール
           </h3>
           <div class="loading-indicator" style="display: none;">
             <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
