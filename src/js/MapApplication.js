@@ -15,6 +15,7 @@ export class MapApplication {
     this.handleSyncToggle = this.handleSyncToggle.bind(this)
     this.handleDebugInfo = this.handleDebugInfo.bind(this)
     this.handleExportData = this.handleExportData.bind(this)
+    this.handleScaleChange = this.handleScaleChange.bind(this); // Add this
   }
 
   async init() {
@@ -52,7 +53,8 @@ export class MapApplication {
       onClearData: this.handleClearData,
       onSyncToggle: this.handleSyncToggle,
       onDebugInfo: this.handleDebugInfo,
-      onExportData: this.handleExportData
+      onExportData: this.handleExportData,
+      onScaleChange: this.handleScaleChange // Add this
     }
     
     this.uiController.setupEventListeners(handlers)
@@ -158,6 +160,12 @@ export class MapApplication {
       ErrorHandler.logError(error, 'handleExportData');
       this.uiController.showError(error.message || 'データのエクスポートに失敗しました。');
     }
+  }
+
+  handleScaleChange(zoomLevel) {
+    console.log(`🔍 Scale change requested to zoom level: ${zoomLevel}`);
+    this.mapManager.setZoom(zoomLevel);
+    this.uiController.showToast(`Zoom level set to ${zoomLevel}`, 'info');
   }
 
   // --- NEW PRIVATE METHOD FOR DEBUG UI ---
