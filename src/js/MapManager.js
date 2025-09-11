@@ -17,6 +17,107 @@ const ScaleSelector = L.Control.extend({
     mapManager: null,
   },
 
+  /**
+   * Create a temporary scale bar for export that won't be hidden by snapdom
+   */
+  _createTempScaleBar(mapInstance, mapContainer) {
+    const zoom = mapInstance.getZoom();
+    const bounds = mapInstance.getBounds();
+    const center = bounds.getCenter();
+    
+    // Calculate meters per pixel at current zoom level
+    const metersPerPixel = 40075017 * Math.cos(center.lat * Math.PI / 180) / Math.pow(2, zoom + 8);
+    
+    // Define scale bar widths and their corresponding distances
+    const scaleWidths = [100, 80, 50, 30, 20, 10]; // pixels
+    let bestScale = null;
+    
+    for (const width of scaleWidths) {
+      const distance = width * metersPerPixel;
+      
+      // Find a nice round number
+      let scale, unit;
+      if (distance >= 1000) {
+        scale = Math.round(distance / 1000);
+        unit = 'km';
+        if (scale > 0) {
+          bestScale = { width, distance: scale * 1000, label: `${scale} ${unit}` };
+          break;
+        }
+      } else {
+        scale = Math.round(distance);
+        unit = 'm';
+        if (scale > 0) {
+          bestScale = { width, distance: scale, label: `${scale} ${unit}` };
+          break;
+        }
+      }
+    }
+    
+    if (!bestScale) {
+      return null;
+    }
+    
+    // Calculate the actual width for the rounded distance
+    const actualWidth = bestScale.distance / metersPerPixel;
+    
+    // Create the scale bar element
+    const scaleBar = document.createElement('div');
+    scaleBar.style.position = 'absolute';
+    scaleBar.style.bottom = '10px';
+    scaleBar.style.left = '10px';
+    scaleBar.style.background = 'rgba(255, 255, 255, 0.9)';
+    scaleBar.style.border = '2px solid #333';
+    scaleBar.style.borderTop = 'none';
+    scaleBar.style.borderRadius = '0 0 3px 3px';
+    scaleBar.style.padding = '2px 5px';
+    scaleBar.style.fontSize = '11px';
+    scaleBar.style.fontFamily = 'Arial, sans-serif';
+    scaleBar.style.fontWeight = 'bold';
+    scaleBar.style.color = '#333';
+    scaleBar.style.zIndex = '10000';
+    scaleBar.style.pointerEvents = 'none';
+    scaleBar.style.width = `${actualWidth}px`;
+    scaleBar.style.textAlign = 'center';
+    scaleBar.textContent = bestScale.label;
+    
+    // Add a line at the bottom
+    const scaleLine = document.createElement('div');
+    scaleLine.style.position = 'absolute';
+    scaleLine.style.bottom = '-2px';
+    scaleLine.style.left = '-2px';
+    scaleLine.style.right = '-2px';
+    scaleLine.style.height = '2px';
+    scaleLine.style.background = '#333';
+    scaleBar.appendChild(scaleLine);
+    
+    // Add tick marks
+    const leftTick = document.createElement('div');
+    leftTick.style.position = 'absolute';
+    leftTick.style.bottom = '-2px';
+    leftTick.style.left = '-2px';
+    leftTick.style.width = '2px';
+    leftTick.style.height = '8px';
+    leftTick.style.background = '#333';
+    scaleBar.appendChild(leftTick);
+    
+    const rightTick = document.createElement('div');
+    rightTick.style.position = 'absolute';
+    rightTick.style.bottom = '-2px';
+    rightTick.style.right = '-2px';
+    rightTick.style.width = '2px';
+    rightTick.style.height = '8px';
+    rightTick.style.background = '#333';
+    scaleBar.appendChild(rightTick);
+    
+    // Add to map container
+    mapContainer.appendChild(scaleBar);
+    
+    console.log(`Created temporary scale bar: ${bestScale.label} (${actualWidth}px)`);
+    
+    return scaleBar;
+  },
+
   onAdd: function (map) {
     this._map = map;
     const container = L.DomUtil.create('div', 'leaflet-control-scale-selector leaflet-bar');
@@ -72,7 +173,6 @@ const ScaleSelector = L.Control.extend({
   }
 });
 
-
 export class MapManager {
   constructor() {
     this.map1 = null
@@ -113,7 +213,9 @@ export class MapManager {
 
   async initializeMaps() {
     await this._waitForLeafletPlugin('L.PM');
-    await this._waitForLeafletPlugin('L.Control.Compass'); 
+    await this._waitForLeafletPlugin('L.Control.Compass');
+    // Wait for snapdom to be available
+    await this._waitForLeafletPlugin('snapdom');
 
     console.log('🗺️ Initializing maps...')
     
@@ -167,9 +269,20 @@ export class MapManager {
   }
 
   addMapControls(map, baseLayers, geojsonLayer) {
-    L.control.scale({ maxWidth: 200, position: 'bottomright', imperial: false }).addTo(map);
+    // Add scale control with better visibility
+    const scaleControl = L.control.scale({ 
+      maxWidth: 200, 
+      position: 'bottomleft', 
+      imperial: false,
+      metric: true,
+      updateWhenIdle: false
+    });
+    scaleControl.addTo(map);
+    
+    // Add custom scale selector
     new ScaleSelector({ position: 'bottomright', mapManager: this }).addTo(map);
 
+    // Add compass control
     L.control.compass({
       position: 'topright',
       autoActive: true,
@@ -177,6 +290,7 @@ export class MapManager {
       textErr: '方位磁針は利用できません',
     }).addTo(map);
 
+    // Setup layer controls
     const overlayLayers = { "GeoJSON": geojsonLayer };
     const geomanLayer = (map === this.map1) ? this.geomanLayer1 : this.geomanLayer2;
     this._initializeGeomanForMap(map, geomanLayer);
@@ -217,6 +331,71 @@ export class MapManager {
   }
   
   exportMap(mapId) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const mapInstance = (mapId === 'map1') ? this.map1 : this.map2;
+        if (!mapInstance) {
+          throw new Error("Map instance not found for export.");
+        }
+
+        const mapContainer = mapInstance.getContainer();
+        const filename = `map-export-${mapId}-${new Date().toISOString().slice(0,10)}.png`;
+
+        // Hide UI controls for cleaner export
+        const uiToHide = mapContainer.querySelectorAll(
+          '.leaflet-control-zoom, .leaflet-control-layers, .leaflet-control-scale-selector, .leaflet-pm-toolbar, .leaflet-pm-actions-container, .leaflet-control-geocoder, .leaflet-control-compass, .leaflet-control-scale'
+        );
+        const originalDisplays = [];
+
+        uiToHide.forEach(el => {
+          originalDisplays.push({ element: el, display: el.style.display });
+          el.style.display = 'none';
+        });
+
+        // Use snapdom for better export quality
+        const result = await snapdom.toPng(mapContainer, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          embedFonts: true,
+          compress: true,
+          quality: 1.0
+        });
+
+        // Create and trigger download
+        const link = document.createElement('a');
+        link.href = result.src;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Restore UI controls
+        originalDisplays.forEach(item => {
+          item.element.style.display = item.display;
+        });
+
+        console.log(`📸 Map ${mapId} exported as ${filename}`);
+        resolve();
+
+      } catch (err) {
+        console.error('Map export failed:', err);
+        
+        // Fallback to html2canvas if snapdom fails
+        console.log('Attempting fallback to html2canvas...');
+        try {
+          await this._exportMapFallback(mapId);
+          resolve();
+        } catch (fallbackError) {
+          console.error('Fallback export also failed:', fallbackError);
+          const userFriendlyError = "Failed to capture map image. The current basemap may have security restrictions (CORS) that prevent exporting. Try a different basemap (like GSI) or check the console for more details.";
+          reject(new Error(userFriendlyError));
+        }
+      }
+    });
+  }
+
+  // Fallback export method using html2canvas
+  _exportMapFallback(mapId) {
     return new Promise((resolve, reject) => {
       const mapInstance = (mapId === 'map1') ? this.map1 : this.map2;
       if (!mapInstance) {
@@ -226,7 +405,7 @@ export class MapManager {
       const mapContainer = mapInstance.getContainer();
       const filename = `map-export-${mapId}-${new Date().toISOString().slice(0,10)}.png`;
 
-      // THE FIX: Select all UI controls to hide them during the export
+      // Hide UI controls for cleaner export (but keep scale bar visible)
       const uiToHide = mapContainer.querySelectorAll(
         '.leaflet-control-zoom, .leaflet-control-layers, .leaflet-control-scale-selector, .leaflet-pm-toolbar, .leaflet-pm-actions-container, .leaflet-control-geocoder, .leaflet-control-compass'
       );
@@ -237,10 +416,28 @@ export class MapManager {
         el.style.display = 'none';
       });
 
+      // Explicitly ensure scale bar is visible
+      const scaleBars = mapContainer.querySelectorAll('.leaflet-control-scale');
+      const originalScaleStyles = [];
+      scaleBars.forEach(scaleBar => {
+        originalScaleStyles.push({
+          element: scaleBar,
+          display: scaleBar.style.display,
+          visibility: scaleBar.style.visibility,
+          opacity: scaleBar.style.opacity
+        });
+        scaleBar.style.display = 'block';
+        scaleBar.style.visibility = 'visible';
+        scaleBar.style.opacity = '1';
+      });
+
+      console.log(`Fallback: Found ${scaleBars.length} scale bars, making them visible for export`);
+
       html2canvas(mapContainer, {
         useCORS: true,
         allowTaint: true,
         logging: false,
+        scale: 2
       }).then(canvas => {
         const link = document.createElement('a');
         link.href = canvas.toDataURL('image/png');
@@ -250,13 +447,18 @@ export class MapManager {
         document.body.removeChild(link);
         resolve();
       }).catch(err => {
-        console.error('Map export failed:', err);
-        const userFriendlyError = "Failed to capture map image. The current basemap may have security restrictions (CORS) that prevent exporting. Try a different basemap (like GSI) or check the console for more details.";
-        reject(new Error(userFriendlyError));
+        reject(err);
       }).finally(() => {
         // Restore the original display style for all hidden elements
         originalDisplays.forEach(item => {
           item.element.style.display = item.display;
+        });
+        
+        // Restore scale bar styles
+        originalScaleStyles.forEach(item => {
+          item.element.style.display = item.display;
+          item.element.style.visibility = item.visibility;
+          item.element.style.opacity = item.opacity;
         });
       });
     });
@@ -447,4 +649,3 @@ export class MapManager {
     };
   }
 }
-
