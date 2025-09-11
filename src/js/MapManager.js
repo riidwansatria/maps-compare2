@@ -113,7 +113,6 @@ export class MapManager {
 
   async initializeMaps() {
     await this._waitForLeafletPlugin('L.PM');
-    // THE FIX: Wait for the new, more reliable compass plugin
     await this._waitForLeafletPlugin('L.Control.Compass'); 
 
     console.log('🗺️ Initializing maps...')
@@ -171,11 +170,10 @@ export class MapManager {
     L.control.scale({ maxWidth: 200, position: 'bottomright', imperial: false }).addTo(map);
     new ScaleSelector({ position: 'bottomright', mapManager: this }).addTo(map);
 
-    // THE FIX: Add the new compass control to the top right of the map
     L.control.compass({
       position: 'topright',
-      autoActive: true, // Keep the compass visible
-      showDigit: false, // Hide the degree number for a cleaner look
+      autoActive: true,
+      showDigit: false,
       textErr: '方位磁針は利用できません',
     }).addTo(map);
 
@@ -191,10 +189,12 @@ export class MapManager {
     map.pm.setGlobalOptions({ layerGroup: geomanLayer });
     map.pm.addControls({
       position: 'topleft',
+      drawPolygon: true,
+      drawPolyline: true,
+      drawRectangle: true,
       drawCircle: false,
       drawCircleMarker: false,
       drawMarker: false,
-      drawRectangle: true,
       cutPolygon: false,
       editMode: true,
       removalMode: true,
@@ -216,11 +216,6 @@ export class MapManager {
     });
   }
   
-  /**
-   * Exports the specified map as a PNG image using html2canvas.
-   * @param {string} mapId - 'map1' or 'map2'.
-   * @returns {Promise<void>}
-   */
   exportMap(mapId) {
     return new Promise((resolve, reject) => {
       const mapInstance = (mapId === 'map1') ? this.map1 : this.map2;
@@ -231,11 +226,21 @@ export class MapManager {
       const mapContainer = mapInstance.getContainer();
       const filename = `map-export-${mapId}-${new Date().toISOString().slice(0,10)}.png`;
 
-      // Use html2canvas to capture the map container element
+      // THE FIX: Select all UI controls to hide them during the export
+      const uiToHide = mapContainer.querySelectorAll(
+        '.leaflet-control-zoom, .leaflet-control-layers, .leaflet-control-scale-selector, .leaflet-pm-toolbar, .leaflet-pm-actions-container, .leaflet-control-geocoder, .leaflet-control-compass'
+      );
+      const originalDisplays = [];
+
+      uiToHide.forEach(el => {
+        originalDisplays.push({ element: el, display: el.style.display });
+        el.style.display = 'none';
+      });
+
       html2canvas(mapContainer, {
-        useCORS: true, // This is crucial for loading cross-origin map tiles
+        useCORS: true,
         allowTaint: true,
-        logging: false, // Set to true for debugging
+        logging: false,
       }).then(canvas => {
         const link = document.createElement('a');
         link.href = canvas.toDataURL('image/png');
@@ -248,6 +253,11 @@ export class MapManager {
         console.error('Map export failed:', err);
         const userFriendlyError = "Failed to capture map image. The current basemap may have security restrictions (CORS) that prevent exporting. Try a different basemap (like GSI) or check the console for more details.";
         reject(new Error(userFriendlyError));
+      }).finally(() => {
+        // Restore the original display style for all hidden elements
+        originalDisplays.forEach(item => {
+          item.element.style.display = item.display;
+        });
       });
     });
   }
@@ -293,7 +303,6 @@ export class MapManager {
   _calculateGeodesicArea(latLngs) {
     const R = 6378137; // Earth's radius in meters
     let area = 0;
-    // THE FIX: Use the correct camelCase variable name that is passed in.
     const n = latLngs.length;
 
     for (let i = 0; i < n; i++) {
@@ -352,7 +361,6 @@ export class MapManager {
 
       const bounds = layer1.getBounds();
       if (bounds && bounds.isValid()) {
-        // THE FIX: Explicitly set the view on both maps while syncing is off.
         this.map1.fitBounds(bounds);
         this.map2.fitBounds(bounds);
       } else {
@@ -365,7 +373,6 @@ export class MapManager {
       console.error('❌ An error occurred inside MapManager.loadGeoJSON:', error);
       return false;
     } finally {
-      // Re-enable syncing only after both maps are correctly positioned.
       this.syncing = wasSyncing;
     }
   }
@@ -440,3 +447,4 @@ export class MapManager {
     };
   }
 }
+
