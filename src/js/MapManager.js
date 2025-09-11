@@ -293,10 +293,12 @@ export class MapManager {
   _calculateGeodesicArea(latLngs) {
     const R = 6378137; // Earth's radius in meters
     let area = 0;
-    const n = latlngs.length;
+    // THE FIX: Use the correct camelCase variable name that is passed in.
+    const n = latLngs.length;
+
     for (let i = 0; i < n; i++) {
-      const p1 = latlngs[i];
-      const p2 = latlngs[(i + 1) % n];
+      const p1 = latLngs[i];
+      const p2 = latLngs[(i + 1) % n];
       area += (p1.lng - p2.lng) * (Math.PI / 180) *
               (2 + Math.sin(p1.lat * (Math.PI / 180)) + Math.sin(p2.lat * (Math.PI / 180)));
     }
