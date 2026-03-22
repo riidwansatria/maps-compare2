@@ -59,8 +59,6 @@ export default function App() {
     }
   }, [])
 
-  // No-op callback so the right map enters controlled mode when syncing
-  const noop = useCallback(() => {}, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -149,7 +147,7 @@ export default function App() {
           onMapReady={(map) => { rightMapRef.current = map }}
           mapStyle={GSI_STYLES[rightLayer]}
           viewport={syncing ? viewport : undefined}
-          onViewportChange={syncing ? noop : undefined}
+          onViewportChange={syncing ? onViewportChange : undefined}
           geojsonData={geojsonData}
           className="h-full w-1/2"
         />
