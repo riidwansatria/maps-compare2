@@ -66,7 +66,7 @@ function removeGeoJSONLayers(map: MapLibreGL.Map) {
   if (map.getSource(GEOJSON_SOURCE_ID)) map.removeSource(GEOJSON_SOURCE_ID)
 }
 
-function GeoJSONLayer({ data }: { data: GeoJSON | null | undefined }) {
+export function GeoJSONLayer({ data }: { data: GeoJSON | null | undefined }) {
   const { map, isLoaded } = useMap()
 
   useEffect(() => {
@@ -98,7 +98,7 @@ function GeoJSONLayer({ data }: { data: GeoJSON | null | undefined }) {
     map.on('styledata', onStyleData)
 
     return () => {
-      map.off('styledata', onStyleData)
+      try { map.off('styledata', onStyleData) } catch { /* map may already be removed */ }
     }
   }, [map, isLoaded, data])
 
@@ -106,7 +106,7 @@ function GeoJSONLayer({ data }: { data: GeoJSON | null | undefined }) {
 }
 
 /** Adds the native MapLibre scale control */
-function ScaleControl() {
+export function ScaleControl() {
   const { map, isLoaded } = useMap()
 
   useEffect(() => {
@@ -114,7 +114,7 @@ function ScaleControl() {
     const scale = new MapLibreGL.ScaleControl({ maxWidth: 200, unit: 'metric' })
     map.addControl(scale, 'bottom-left')
     return () => {
-      map.removeControl(scale)
+      try { map.removeControl(scale) } catch { /* map may already be removed */ }
     }
   }, [map, isLoaded])
 
@@ -122,7 +122,7 @@ function ScaleControl() {
 }
 
 /** Calls onMapReady with the underlying MapLibre instance */
-function MapReadyBridge({ onMapReady }: { onMapReady: (map: MapLibreGL.Map) => void }) {
+export function MapReadyBridge({ onMapReady }: { onMapReady: (map: MapLibreGL.Map) => void }) {
   const { map, isLoaded } = useMap()
   const calledRef = useRef(false)
 

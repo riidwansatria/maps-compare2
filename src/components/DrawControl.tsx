@@ -133,9 +133,11 @@ export function DrawControl() {
     draw.on('finish', onChange)
 
     return () => {
-      draw.off('change', onChange)
-      draw.off('finish', onChange)
-      draw.stop()
+      try {
+        draw.off('change', onChange)
+        draw.off('finish', onChange)
+        draw.stop()
+      } catch { /* map may already be removed */ }
       drawRef.current = null
     }
   }, [map, isLoaded, updateMeasurements])

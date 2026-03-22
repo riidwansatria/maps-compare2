@@ -3,12 +3,15 @@ import { Toaster, toast } from 'sonner'
 import { GSI_STYLES } from '@/lib/gsi-styles'
 import { exportMap } from '@/lib/export-map'
 import { MapPane } from '@/components/MapPane'
+import { OverlayMapPane } from '@/components/OverlayMapPane'
+import { OpacitySlider } from '@/components/OpacitySlider'
 import { LayerSelect } from '@/components/LayerSelect'
 import { AttributionBar } from '@/components/AttributionBar'
 import { GeoJSONUpload, DragDropOverlay } from '@/components/GeoJSONUpload'
 import { LocationSearch } from '@/components/LocationSearch'
 import { useViewportSync } from '@/hooks/useViewportSync'
 import { useLayerSelection } from '@/hooks/useLayerSelection'
+import { useCompareMode } from '@/hooks/useCompareMode'
 import { useGeoJSON } from '@/hooks/useGeoJSON'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
@@ -19,10 +22,13 @@ export default function App() {
   const { viewport, onViewportChange, syncing, toggleSync } = useViewportSync()
   const { leftLayer, setLeftLayer, rightLayer, setRightLayer } =
     useLayerSelection('seamlessphoto', 'google')
+  const { mode, toggleMode, overlayOpacity, setOverlayOpacity } = useCompareMode()
   const { geojsonData, filename, loadFile, clearData } = useGeoJSON()
 
   const leftMapRef = useRef<MapLibreGL.Map | null>(null)
   const rightMapRef = useRef<MapLibreGL.Map | null>(null)
+
+  const isOverlay = mode === 'overlay'
 
   // Wrap loadFile with toast feedback
   const handleFileLoad = useCallback(async (file: File) => {
@@ -59,6 +65,15 @@ export default function App() {
     }
   }, [])
 
+  const handleExportOverlay = useCallback(async () => {
+    if (!leftMapRef.current) return
+    try {
+      await exportMap(leftMapRef.current, 'overlay')
+      toast.success('マップをエクスポートしました')
+    } catch {
+      toast.error('エクスポートに失敗しました')
+    }
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -69,12 +84,16 @@ export default function App() {
       }
       if (e.key === ' ' && e.target === document.body) {
         e.preventDefault()
-        toggleSync()
+        if (!isOverlay) toggleSync()
+      }
+      if (e.key === 'm' && e.target === document.body) {
+        e.preventDefault()
+        toggleMode()
       }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [toggleSync])
+  }, [toggleSync, toggleMode, isOverlay])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">
@@ -85,20 +104,42 @@ export default function App() {
 
       {/* Controls bar */}
       <div className="flex h-12 shrink-0 items-center gap-3 border-b bg-background px-4 overflow-x-auto">
-        <LayerSelect value={leftLayer} onChange={setLeftLayer} label="左" />
+        <LayerSelect
+          value={leftLayer}
+          onChange={setLeftLayer}
+          label={isOverlay ? 'ベース' : '左'}
+        />
         <Separator orientation="vertical" className="h-5" />
-        <LayerSelect value={rightLayer} onChange={setRightLayer} label="右" />
+        <LayerSelect
+          value={rightLayer}
+          onChange={setRightLayer}
+          label={isOverlay ? 'オーバーレイ' : '右'}
+        />
         <Separator orientation="vertical" className="h-5" />
 
-        {/* Sync toggle */}
+        {/* Mode toggle */}
         <Button
-          variant={syncing ? 'default' : 'outline'}
+          variant={isOverlay ? 'default' : 'outline'}
           size="sm"
           className="h-8 text-xs"
-          onClick={toggleSync}
+          onClick={toggleMode}
         >
-          {syncing ? '同期オン' : '同期オフ'}
+          {isOverlay ? 'オーバーレイ' : '並列'}
         </Button>
+
+        {/* Sync toggle — only in side-by-side mode */}
+        {!isOverlay && (
+          <>
+            <Button
+              variant={syncing ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={toggleSync}
+            >
+              {syncing ? '同期オン' : '同期オフ'}
+            </Button>
+          </>
+        )}
 
         <Separator orientation="vertical" className="h-5" />
 
@@ -114,12 +155,20 @@ export default function App() {
         <Separator orientation="vertical" className="h-5" />
 
         {/* Export buttons */}
-        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportLeft}>
-          左をエクスポート
-        </Button>
-        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportRight}>
-          右をエクスポート
-        </Button>
+        {isOverlay ? (
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportOverlay}>
+            エクスポート
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportLeft}>
+              左をエクスポート
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportRight}>
+              右をエクスポート
+            </Button>
+          </>
+        )}
 
         {filename && (
           <>
@@ -131,27 +180,52 @@ export default function App() {
         )}
       </div>
 
-      {/* Dual map */}
-      <div className="flex flex-1 overflow-hidden">
-        <MapPane
-          onMapReady={(map) => { leftMapRef.current = map }}
-          mapStyle={GSI_STYLES[leftLayer]}
-          viewport={viewport}
-          onViewportChange={onViewportChange}
-          geojsonData={geojsonData}
-          showDraw
-          className="h-full w-1/2"
-        />
-        <Separator orientation="vertical" />
-        <MapPane
-          onMapReady={(map) => { rightMapRef.current = map }}
-          mapStyle={GSI_STYLES[rightLayer]}
-          viewport={syncing ? viewport : undefined}
-          onViewportChange={syncing ? onViewportChange : undefined}
-          geojsonData={geojsonData}
-          className="h-full w-1/2"
-        />
-      </div>
+      {/* Map area */}
+      {isOverlay ? (
+        <div className="relative flex-1 overflow-hidden">
+          <OverlayMapPane
+            baseLayer={leftLayer}
+            overlayLayer={rightLayer}
+            overlayOpacity={overlayOpacity}
+            viewport={viewport}
+            onViewportChange={onViewportChange}
+            onMapReady={(map) => {
+              leftMapRef.current = map
+              rightMapRef.current = map
+            }}
+            geojsonData={geojsonData}
+            showDraw
+            className="h-full w-full"
+          />
+          <OpacitySlider
+            value={overlayOpacity}
+            onChange={setOverlayOpacity}
+            baseLayer={leftLayer}
+            overlayLayer={rightLayer}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <MapPane
+            onMapReady={(map) => { leftMapRef.current = map }}
+            mapStyle={GSI_STYLES[leftLayer]}
+            viewport={viewport}
+            onViewportChange={onViewportChange}
+            geojsonData={geojsonData}
+            showDraw
+            className="h-full w-1/2"
+          />
+          <Separator orientation="vertical" />
+          <MapPane
+            onMapReady={(map) => { rightMapRef.current = map }}
+            mapStyle={GSI_STYLES[rightLayer]}
+            viewport={syncing ? viewport : undefined}
+            onViewportChange={syncing ? onViewportChange : undefined}
+            geojsonData={geojsonData}
+            className="h-full w-1/2"
+          />
+        </div>
+      )}
     </div>
   )
 }
