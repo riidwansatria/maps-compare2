@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react'
 import MapLibreGL from 'maplibre-gl'
-import type { GeoJSON } from 'geojson'
+import type { GeoJSON, FeatureCollection } from 'geojson'
+import type { Geoman } from '@geoman-io/maplibre-geoman-free'
 import { Map, useMap, MapControls } from '@/components/ui/map'
 import { DrawControl } from '@/components/DrawControl'
 import { GeoJSONLayer, ScaleControl, MapReadyBridge } from '@/components/MapPane'
@@ -17,6 +18,10 @@ interface OverlayMapPaneProps {
   onMapReady?: (map: MapLibreGL.Map) => void
   geojsonData?: GeoJSON | null
   showDraw?: boolean
+  drawPanelId?: string
+  drawEditSourceRef?: React.MutableRefObject<string | null>
+  onGeomanReady?: (gm: Geoman | null) => void
+  onDrawFeaturesChange?: (fc: FeatureCollection) => void
   className?: string
 }
 
@@ -111,6 +116,10 @@ export function OverlayMapPane({
   onMapReady,
   geojsonData,
   showDraw,
+  drawPanelId,
+  drawEditSourceRef,
+  onGeomanReady,
+  onDrawFeaturesChange,
   className,
 }: OverlayMapPaneProps) {
   const initialStyle = useMemo(
@@ -131,7 +140,14 @@ export function OverlayMapPane({
     >
       <MapControls position="top-right" showZoom showCompass showLocate />
       <ScaleControl />
-      {showDraw && <DrawControl />}
+      {showDraw && drawPanelId && drawEditSourceRef && (
+        <DrawControl
+          panelId={drawPanelId}
+          editSourceRef={drawEditSourceRef}
+          onGeomanReady={onGeomanReady}
+          onFeaturesChange={onDrawFeaturesChange}
+        />
+      )}
       <GeoJSONLayer data={geojsonData} />
       <OverlayLayerManager
         baseLayer={baseLayer}

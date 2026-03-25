@@ -49,6 +49,12 @@ export const GSI_STYLES = {
 
 export type GsiStyleKey = keyof typeof GSI_STYLES
 
+/** Extract tile URL from a GSI style */
+export function getTileUrl(key: GsiStyleKey): string {
+  const source = GSI_STYLES[key].sources.gsi as { tiles: string[] }
+  return source.tiles[0]
+}
+
 export const LAYER_LABELS: Record<GsiStyleKey, string> = {
   standard: 'GSI 標準地図',
   seamlessphoto: 'GSI 写真',

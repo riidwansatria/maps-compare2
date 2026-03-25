@@ -1,19 +1,52 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import MapLibreGL from 'maplibre-gl'
-import type { StyleSpecification } from 'maplibre-gl'
-import type { GeoJSON } from 'geojson'
+import type { GeoJSON, FeatureCollection } from 'geojson'
+import type { Geoman } from '@geoman-io/maplibre-geoman-free'
 import { Map, useMap, MapControls } from '@/components/ui/map'
 import { DrawControl } from '@/components/DrawControl'
+import { GSI_STYLES, getTileUrl, type GsiStyleKey } from '@/lib/gsi-styles'
 import type { Viewport } from '@/hooks/useViewportSync'
 
+const TILE_SOURCE_ID = 'gsi'
+
 interface MapPaneProps {
-  mapStyle: StyleSpecification
+  layerKey: GsiStyleKey
   viewport?: Viewport
   onViewportChange?: (viewport: Viewport) => void
   onMapReady?: (map: MapLibreGL.Map) => void
   geojsonData?: GeoJSON | null
   showDraw?: boolean
+  drawPanelId?: string
+  drawEditSourceRef?: React.MutableRefObject<string | null>
+  onGeomanReady?: (gm: Geoman | null) => void
+  onDrawFeaturesChange?: (fc: FeatureCollection) => void
+  syncDrawFeatures?: FeatureCollection | null
   className?: string
+}
+
+/**
+ * Swaps the raster tile URL without replacing the entire style.
+ * This preserves all other sources/layers (Geoman, GeoJSON, etc.)
+ */
+function TileLayerSwapper({ layerKey }: { layerKey: GsiStyleKey }) {
+  const { map, isLoaded } = useMap()
+  const prevKeyRef = useRef(layerKey)
+
+  useEffect(() => {
+    if (!map || !isLoaded) return
+    if (prevKeyRef.current === layerKey) return
+    prevKeyRef.current = layerKey
+
+    try {
+      const source = map.getSource(TILE_SOURCE_ID) as MapLibreGL.RasterTileSource | undefined
+      if (source) {
+        // Update tiles on the existing source — no style replacement needed
+        source.setTiles([getTileUrl(layerKey)])
+      }
+    } catch { /* source may not exist yet */ }
+  }, [map, isLoaded, layerKey])
+
+  return null
 }
 
 const GEOJSON_SOURCE_ID = 'user-geojson'
@@ -137,11 +170,16 @@ export function MapReadyBridge({ onMapReady }: { onMapReady: (map: MapLibreGL.Ma
 }
 
 export function MapPane({
-  mapStyle, viewport, onViewportChange, onMapReady, geojsonData, showDraw, className,
+  layerKey, viewport, onViewportChange, onMapReady, geojsonData,
+  showDraw, drawPanelId, drawEditSourceRef, onGeomanReady, onDrawFeaturesChange, syncDrawFeatures,
+  className,
 }: MapPaneProps) {
+  // Stable initial style — never changes, so mapcn won't call setStyle()
+  const initialStyle = useMemo(() => GSI_STYLES[layerKey], []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Map
-      styles={{ light: mapStyle, dark: mapStyle }}
+      styles={{ light: initialStyle, dark: initialStyle }}
       viewport={viewport}
       onViewportChange={onViewportChange}
       // @ts-expect-error — MapLibre supports preserveDrawingBuffer but mapcn types don't expose it
@@ -155,7 +193,16 @@ export function MapPane({
         showLocate
       />
       <ScaleControl />
-      {showDraw && <DrawControl />}
+      <TileLayerSwapper layerKey={layerKey} />
+      {showDraw && drawPanelId && drawEditSourceRef && (
+        <DrawControl
+          panelId={drawPanelId}
+          editSourceRef={drawEditSourceRef}
+          onGeomanReady={onGeomanReady}
+          onFeaturesChange={onDrawFeaturesChange}
+          syncFeatures={syncDrawFeatures}
+        />
+      )}
       <GeoJSONLayer data={geojsonData} />
       {onMapReady && <MapReadyBridge onMapReady={onMapReady} />}
     </Map>

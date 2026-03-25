@@ -1,10 +1,10 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { Toaster, toast } from 'sonner'
-import { GSI_STYLES } from '@/lib/gsi-styles'
 import { exportMap } from '@/lib/export-map'
 import { MapPane } from '@/components/MapPane'
 import { OverlayMapPane } from '@/components/OverlayMapPane'
 import { OpacitySlider } from '@/components/OpacitySlider'
+import { DrawToolbar } from '@/components/DrawToolbar'
 import { LayerSelect } from '@/components/LayerSelect'
 import { AttributionBar } from '@/components/AttributionBar'
 import { GeoJSONUpload, DragDropOverlay } from '@/components/GeoJSONUpload'
@@ -17,6 +17,8 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type MapLibreGL from 'maplibre-gl'
+import type { Geoman } from '@geoman-io/maplibre-geoman-free'
+import type { FeatureCollection } from 'geojson'
 
 export default function App() {
   const { viewport, onViewportChange, syncing, toggleSync } = useViewportSync()
@@ -28,7 +30,24 @@ export default function App() {
   const leftMapRef = useRef<MapLibreGL.Map | null>(null)
   const rightMapRef = useRef<MapLibreGL.Map | null>(null)
 
+  // Geoman instances for the toolbar to control
+  const [leftGm, setLeftGm] = useState<Geoman | null>(null)
+  const [rightGm, setRightGm] = useState<Geoman | null>(null)
+
+  // Single canonical drawn features + source tracking to prevent sync loops
+  const [drawnFeatures, setDrawnFeatures] = useState<FeatureCollection | null>(null)
+  const drawEditSourceRef = useRef<string | null>(null)
+
   const isOverlay = mode === 'overlay'
+
+  // Collect all active Geoman instances for the toolbar
+  const geomanInstances = useMemo(() => {
+    if (isOverlay) return [leftGm].filter(Boolean) as Geoman[]
+    return [leftGm, rightGm].filter(Boolean) as Geoman[]
+  }, [isOverlay, leftGm, rightGm])
+
+  // Use drawnFeatures as the canonical source for measurements
+  const currentFeatures = drawnFeatures
 
   // Wrap loadFile with toast feedback
   const handleFileLoad = useCallback(async (file: File) => {
@@ -129,16 +148,14 @@ export default function App() {
 
         {/* Sync toggle — only in side-by-side mode */}
         {!isOverlay && (
-          <>
-            <Button
-              variant={syncing ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={toggleSync}
-            >
-              {syncing ? '同期オン' : '同期オフ'}
-            </Button>
-          </>
+          <Button
+            variant={syncing ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={toggleSync}
+          >
+            {syncing ? '同期オン' : '同期オフ'}
+          </Button>
         )}
 
         <Separator orientation="vertical" className="h-5" />
@@ -181,51 +198,74 @@ export default function App() {
       </div>
 
       {/* Map area */}
-      {isOverlay ? (
-        <div className="relative flex-1 overflow-hidden">
-          <OverlayMapPane
-            baseLayer={leftLayer}
-            overlayLayer={rightLayer}
-            overlayOpacity={overlayOpacity}
-            viewport={viewport}
-            onViewportChange={onViewportChange}
-            onMapReady={(map) => {
-              leftMapRef.current = map
-              rightMapRef.current = map
-            }}
-            geojsonData={geojsonData}
-            showDraw
-            className="h-full w-full"
-          />
-          <OpacitySlider
-            value={overlayOpacity}
-            onChange={setOverlayOpacity}
-            baseLayer={leftLayer}
-            overlayLayer={rightLayer}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-1 overflow-hidden">
-          <MapPane
-            onMapReady={(map) => { leftMapRef.current = map }}
-            mapStyle={GSI_STYLES[leftLayer]}
-            viewport={viewport}
-            onViewportChange={onViewportChange}
-            geojsonData={geojsonData}
-            showDraw
-            className="h-full w-1/2"
-          />
-          <Separator orientation="vertical" />
-          <MapPane
-            onMapReady={(map) => { rightMapRef.current = map }}
-            mapStyle={GSI_STYLES[rightLayer]}
-            viewport={syncing ? viewport : undefined}
-            onViewportChange={syncing ? onViewportChange : undefined}
-            geojsonData={geojsonData}
-            className="h-full w-1/2"
-          />
-        </div>
-      )}
+      <div className="relative flex-1 overflow-hidden">
+        {isOverlay ? (
+          <>
+            <OverlayMapPane
+              baseLayer={leftLayer}
+              overlayLayer={rightLayer}
+              overlayOpacity={overlayOpacity}
+              viewport={viewport}
+              onViewportChange={onViewportChange}
+              onMapReady={(map) => {
+                leftMapRef.current = map
+                rightMapRef.current = map
+              }}
+              geojsonData={geojsonData}
+              showDraw
+              drawPanelId="overlay"
+              drawEditSourceRef={drawEditSourceRef}
+              onGeomanReady={setLeftGm}
+              onDrawFeaturesChange={setDrawnFeatures}
+              className="h-full w-full"
+            />
+            <OpacitySlider
+              value={overlayOpacity}
+              onChange={setOverlayOpacity}
+              baseLayer={leftLayer}
+              overlayLayer={rightLayer}
+            />
+          </>
+        ) : (
+          <div className="flex h-full">
+            <MapPane
+              onMapReady={(map) => { leftMapRef.current = map }}
+              layerKey={leftLayer}
+              viewport={viewport}
+              onViewportChange={onViewportChange}
+              geojsonData={geojsonData}
+              showDraw
+              drawPanelId="left"
+              drawEditSourceRef={drawEditSourceRef}
+              onGeomanReady={setLeftGm}
+              onDrawFeaturesChange={setDrawnFeatures}
+              syncDrawFeatures={drawnFeatures}
+              className="h-full w-1/2"
+            />
+            <Separator orientation="vertical" />
+            <MapPane
+              onMapReady={(map) => { rightMapRef.current = map }}
+              layerKey={rightLayer}
+              viewport={syncing ? viewport : undefined}
+              onViewportChange={syncing ? onViewportChange : undefined}
+              geojsonData={geojsonData}
+              showDraw
+              drawPanelId="right"
+              drawEditSourceRef={drawEditSourceRef}
+              onGeomanReady={setRightGm}
+              onDrawFeaturesChange={setDrawnFeatures}
+              syncDrawFeatures={drawnFeatures}
+              className="h-full w-1/2"
+            />
+          </div>
+        )}
+
+        {/* Draw toolbar — floating over both maps */}
+        <DrawToolbar
+          geomanInstances={geomanInstances}
+          features={currentFeatures}
+        />
+      </div>
     </div>
   )
 }
