@@ -30,7 +30,7 @@ export function GeoJSONUpload({ filename, onFileSelect, onClear }: GeoJSONUpload
         className="h-8 text-xs"
         onClick={() => inputRef.current?.click()}
       >
-        {filename ? `GeoJSON: ${filename}` : 'GeoJSONを選択'}
+        {filename ? `GeoJSON: ${filename}` : 'Load GeoJSON'}
       </Button>
       {filename && (
         <Button
@@ -39,7 +39,7 @@ export function GeoJSONUpload({ filename, onFileSelect, onClear }: GeoJSONUpload
           className="h-8 text-xs text-destructive"
           onClick={onClear}
         >
-          クリア
+          Clear
         </Button>
       )}
     </div>
@@ -97,7 +97,7 @@ export function DragDropOverlay({ onFileSelect }: { onFileSelect: (file: File) =
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 pointer-events-none">
       <div className="rounded-lg border-2 border-dashed border-white bg-black/20 px-10 py-5 text-2xl font-semibold text-white">
-        GeoJSONファイルをドロップ
+        Drop GeoJSON file
       </div>
     </div>
   )

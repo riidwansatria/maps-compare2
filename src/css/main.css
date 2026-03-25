@@ -139,4 +139,15 @@
   .maplibregl-popup-tip {
     display: none !important;
     }
+
+  /* Safari on macOS 26 uses a larger window corner radius */
+  .map-frame {
+    border-radius: var(--radius-xl); /* rounded-xl for Chrome */
+    }
+}
+
+@supports (-webkit-hyphens: none) {
+  .map-frame {
+    border-radius: var(--radius-2xl); /* rounded-2xl for Safari */
+  }
 }

@@ -50,11 +50,11 @@ function computeMeasurements(fc: FeatureCollection): string[] {
   for (const feature of fc.features) {
     if (!feature.geometry) continue
     if (feature.geometry.type === 'LineString') {
-      results.push(`距離: ${formatDistance(lineLength(feature.geometry.coordinates))}`)
+      results.push(`Distance: ${formatDistance(lineLength(feature.geometry.coordinates))}`)
     }
     if (feature.geometry.type === 'Polygon') {
       const ring = feature.geometry.coordinates[0]
-      results.push(`周囲: ${formatDistance(lineLength(ring))} / 面積: ${formatArea(polygonArea(ring))}`)
+      results.push(`Perimeter: ${formatDistance(lineLength(ring))} / Area: ${formatArea(polygonArea(ring))}`)
     }
   }
   return results
@@ -99,12 +99,12 @@ export function DrawToolbar({ geomanInstances, features }: DrawToolbarProps) {
   const measurements = features ? computeMeasurements(features) : []
 
   const tools: { mode: DrawMode; label: string }[] = [
-    { mode: 'marker', label: 'ピン' },
-    { mode: 'line', label: '線' },
-    { mode: 'polygon', label: '面' },
-    { mode: 'circle', label: '円' },
-    { mode: 'rectangle', label: '四角' },
-    { mode: 'edit', label: '編集' },
+    { mode: 'marker', label: 'Pin' },
+    { mode: 'line', label: 'Line' },
+    { mode: 'polygon', label: 'Polygon' },
+    { mode: 'circle', label: 'Circle' },
+    { mode: 'rectangle', label: 'Rectangle' },
+    { mode: 'edit', label: 'Edit' },
   ]
 
   return (
@@ -127,7 +127,7 @@ export function DrawToolbar({ geomanInstances, features }: DrawToolbarProps) {
         className="h-7 px-2.5 text-xs text-destructive hover:text-destructive"
         onClick={clearAll}
       >
-        削除
+        Delete
       </Button>
       {measurements.length > 0 && (
         <>

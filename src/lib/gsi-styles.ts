@@ -1,7 +1,7 @@
 import type { StyleSpecification } from 'maplibre-gl'
 
 const GSI_ATTR =
-  '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>'
+  '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">GSI Tiles</a>'
 
 function gsiStyle(tileUrl: string, attribution?: string): StyleSpecification {
   return {
@@ -55,20 +55,33 @@ export function getTileUrl(key: GsiStyleKey): string {
   return source.tiles[0]
 }
 
+/** Plain-text attribution for a given layer key */
+export function getAttribution(key: GsiStyleKey): string {
+  const source = GSI_STYLES[key].sources.gsi as { attribution?: string }
+  const html = source.attribution ?? ''
+  return html.replace(/<[^>]*>/g, '').replace(/&copy;\s*/g, '\u00A9 ')
+}
+
+/** Raw HTML attribution for a given layer key (for MapLibre attribution control) */
+export function getAttributionHtml(key: GsiStyleKey): string {
+  const source = GSI_STYLES[key].sources.gsi as { attribution?: string }
+  return source.attribution ?? ''
+}
+
 export const LAYER_LABELS: Record<GsiStyleKey, string> = {
-  standard: 'GSI 標準地図',
-  seamlessphoto: 'GSI 写真',
-  pale: 'GSI 淡色地図',
-  relief: 'GSI 陰影起伏図',
-  landuse: 'GSI 土地利用図',
-  gazo4: 'GSI 1987〜1990年',
-  gazo3: 'GSI 1984〜1986年',
-  gazo2: 'GSI 1979〜1983年',
-  gazo1: 'GSI 1974〜1978年',
-  ort_old10: 'GSI 1961〜1969年',
-  ort_USA10: 'GSI 1945〜1950年',
-  ort_riku10: 'GSI 1936〜1942年頃',
-  ort_1928: 'GSI 1928年頃（大阪）',
+  standard: 'GSI Standard',
+  seamlessphoto: 'GSI Photo',
+  pale: 'GSI Pale',
+  relief: 'GSI Relief',
+  landuse: 'GSI Land Use',
+  gazo4: 'GSI 1987–1990',
+  gazo3: 'GSI 1984–1986',
+  gazo2: 'GSI 1979–1983',
+  gazo1: 'GSI 1974–1978',
+  ort_old10: 'GSI 1961–1969',
+  ort_USA10: 'GSI 1945–1950',
+  ort_riku10: 'GSI c. 1936–1942',
+  ort_1928: 'GSI c. 1928 (Osaka)',
   osm: 'OpenStreetMap',
   google: 'Google Maps',
 }

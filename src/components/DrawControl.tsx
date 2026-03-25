@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { Geoman } from '@geoman-io/maplibre-geoman-free'
 import '@geoman-io/maplibre-geoman-free/dist/maplibre-geoman.css'
 import { useMap } from '@/components/ui/map'
@@ -56,6 +56,7 @@ export function DrawControl({
   const isSyncingRef = useRef(false)
   const lastFeaturesRef = useRef<FeatureCollection | null>(null)
   const syncVersionRef = useRef(0)
+  const [isGeomanReady, setIsGeomanReady] = useState(false)
   const onFeaturesChangeRef = useRef(onFeaturesChange)
   onFeaturesChangeRef.current = onFeaturesChange
   const onGeomanReadyRef = useRef(onGeomanReady)
@@ -76,6 +77,7 @@ export function DrawControl({
   useEffect(() => {
     if (!map || !isLoaded) return
 
+    setIsGeomanReady(false)
     const gm = new Geoman(map, {
       settings: { controlsUiEnabledByDefault: false },
       layerStyles: LAYER_STYLES,
@@ -86,6 +88,7 @@ export function DrawControl({
 
     const onLoaded = () => {
       onGeomanReadyRef.current?.(gm)
+      setIsGeomanReady(true)
       map.on('gm:create', onUpdate)
       map.on('gm:edit', onUpdate)
       map.on('gm:drag', onUpdate)
@@ -103,17 +106,20 @@ export function DrawControl({
         gm.destroy({ removeSources: true })?.catch(() => {})
       } catch { /* map may already be removed */ }
       gmRef.current = null
+      setIsGeomanReady(false)
       onGeomanReadyRef.current?.(null)
     }
   }, [map, isLoaded, emitFeatures])
 
-  // Sync features — only when this panel is NOT the edit source.
+  // Sync features when a ready Geoman instance exists and this mounted panel
+  // does not already own the exact canonical feature collection.
   // Uses a version counter to cancel stale syncs from overlapping async calls.
   useEffect(() => {
     const gm = gmRef.current
-    if (!gm || !syncFeatures) return
-    // Skip if we are the source of this change
-    if (editSourceRef.current === panelId) return
+    if (!gm || !isGeomanReady || syncFeatures == null) return
+    // Skip only when this live instance already emitted the same collection.
+    // A remounted panel may reuse the same panelId but still needs rehydration.
+    if (editSourceRef.current === panelId && lastFeaturesRef.current === syncFeatures) return
 
     const version = ++syncVersionRef.current
     isSyncingRef.current = true
@@ -141,7 +147,7 @@ export function DrawControl({
       syncVersionRef.current++
       isSyncingRef.current = false
     }
-  }, [syncFeatures, editSourceRef, panelId])
+  }, [syncFeatures, editSourceRef, panelId, isGeomanReady])
 
   return null
 }

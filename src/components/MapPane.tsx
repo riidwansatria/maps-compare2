@@ -4,7 +4,7 @@ import type { GeoJSON, FeatureCollection } from 'geojson'
 import type { Geoman } from '@geoman-io/maplibre-geoman-free'
 import { Map, useMap, MapControls } from '@/components/ui/map'
 import { DrawControl } from '@/components/DrawControl'
-import { GSI_STYLES, getTileUrl, type GsiStyleKey } from '@/lib/gsi-styles'
+import { GSI_STYLES, getTileUrl, getAttributionHtml, type GsiStyleKey } from '@/lib/gsi-styles'
 import type { Viewport } from '@/hooks/useViewportSync'
 
 const TILE_SOURCE_ID = 'gsi'
@@ -21,6 +21,9 @@ interface MapPaneProps {
   onGeomanReady?: (gm: Geoman | null) => void
   onDrawFeaturesChange?: (fc: FeatureCollection) => void
   syncDrawFeatures?: FeatureCollection | null
+  showControls?: boolean
+  showScale?: boolean
+  extraAttribution?: GsiStyleKey
   className?: string
 }
 
@@ -169,10 +172,48 @@ export function MapReadyBridge({ onMapReady }: { onMapReady: (map: MapLibreGL.Ma
   return null
 }
 
+/** Keeps the raster source attribution in sync with the selected layers */
+/**
+ * Directly updates the attribution control DOM to show combined attribution
+ * from both panels. Runs after MapLibre's own handler via setTimeout so our
+ * content isn't overwritten by the built-in control.
+ * Note: innerHTML is safe here — attribution strings are hardcoded in gsi-styles.ts, not user input.
+ */
+export function AttributionSyncer({ layerKey, extraAttribution }: { layerKey: GsiStyleKey; extraAttribution?: GsiStyleKey }) {
+  const { map, isLoaded } = useMap()
+
+  useEffect(() => {
+    if (!map || !isLoaded) return
+
+    const update = () => {
+      setTimeout(() => {
+        try {
+          const el = map.getContainer().querySelector('.maplibregl-ctrl-attrib-inner')
+          if (!el) return
+          const parts: string[] = []
+          if (extraAttribution && extraAttribution !== layerKey) {
+            parts.push(getAttributionHtml(extraAttribution))
+          }
+          parts.push(getAttributionHtml(layerKey))
+          el.innerHTML = parts.join(' | ') // eslint-disable-line no-unsanitized/property
+        } catch { /* map may be removed */ }
+      }, 0)
+    }
+
+    update()
+    map.on('sourcedata', update)
+    return () => {
+      try { map.off('sourcedata', update) } catch { /* map may be removed */ }
+    }
+  }, [map, isLoaded, layerKey, extraAttribution])
+
+  return null
+}
+
 export function MapPane({
   layerKey, viewport, onViewportChange, onMapReady, geojsonData,
   showDraw, drawPanelId, drawEditSourceRef, onGeomanReady, onDrawFeaturesChange, syncDrawFeatures,
-  className,
+  showControls = true, showScale = true, extraAttribution, className,
 }: MapPaneProps) {
   // Stable initial style — never changes, so mapcn won't call setStyle()
   const initialStyle = useMemo(() => GSI_STYLES[layerKey], []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,17 +223,21 @@ export function MapPane({
       styles={{ light: initialStyle, dark: initialStyle }}
       viewport={viewport}
       onViewportChange={onViewportChange}
-      // @ts-expect-error — MapLibre supports preserveDrawingBuffer but mapcn types don't expose it
+      // @ts-expect-error — MapLibre supports preserveDrawingBuffer/attributionControl but mapcn types don't expose them
       preserveDrawingBuffer={true}
+      attributionControl={showControls ? { compact: true } : false}
       className={className}
     >
-      <MapControls
-        position="top-right"
-        showZoom
-        showCompass
-        showLocate
-      />
-      <ScaleControl />
+      {showControls && (
+        <MapControls
+          position="top-right"
+          showZoom
+          showCompass
+          showLocate
+        />
+      )}
+      {showScale && <ScaleControl />}
+      <AttributionSyncer layerKey={layerKey} extraAttribution={extraAttribution} />
       <TileLayerSwapper layerKey={layerKey} />
       {showDraw && drawPanelId && drawEditSourceRef && (
         <DrawControl

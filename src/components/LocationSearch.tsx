@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Search } from 'lucide-react'
 import {
   Command,
   CommandInput,
@@ -11,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import type { Viewport } from '@/hooks/useViewportSync'
 
 interface SearchResult {
@@ -73,21 +73,20 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 text-xs"
+      <div
+        className="flex h-7 w-60 cursor-pointer items-center gap-2 rounded-md bg-muted/50 px-3 text-xs text-muted-foreground transition-colors hover:bg-muted"
         onClick={() => setOpen(true)}
       >
-        住所検索
-      </Button>
+        <Search className="h-3.5 w-3.5 shrink-0" />
+        <span>Search coordinates or location...</span>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="p-0 max-w-md">
-          <DialogTitle className="sr-only">住所検索</DialogTitle>
+          <DialogTitle className="sr-only">Location Search</DialogTitle>
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="住所・地名を入力..."
+              placeholder="Enter address or place name..."
               value={query}
               onValueChange={(v) => {
                 setQuery(v)
@@ -96,7 +95,7 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
             />
             <CommandList>
               <CommandEmpty>
-                {loading ? '検索中...' : query.length < 2 ? '2文字以上入力してください' : '結果がありません'}
+                {loading ? 'Searching...' : query.length < 2 ? 'Type at least 2 characters' : 'No results found'}
               </CommandEmpty>
               {results.map((result, i) => (
                 <CommandItem

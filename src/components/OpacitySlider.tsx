@@ -10,7 +10,7 @@ interface OpacitySliderProps {
 
 export function OpacitySlider({ value, onChange, baseLayer, overlayLayer }: OpacitySliderProps) {
   return (
-    <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
+    <div className="absolute top-6 left-1/2 z-10 -translate-x-1/2">
       <div className="flex w-80 flex-col gap-1.5 rounded-lg border bg-background/90 px-4 py-3 shadow-lg backdrop-blur-sm">
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
           <span className="truncate max-w-[120px]">{LAYER_LABELS[baseLayer]}</span>

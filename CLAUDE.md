@@ -54,7 +54,7 @@ No external state library. App.tsx lifts all shared state:
 
 ## UI Language
 
-All user-facing labels are in **Japanese**. Maintain this convention.
+All user-facing labels are in **English**. Maintain this convention.
 
 ## Key Pitfalls
 

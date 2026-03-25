@@ -4,7 +4,7 @@ import type { GeoJSON, FeatureCollection } from 'geojson'
 import type { Geoman } from '@geoman-io/maplibre-geoman-free'
 import { Map, useMap, MapControls } from '@/components/ui/map'
 import { DrawControl } from '@/components/DrawControl'
-import { GeoJSONLayer, ScaleControl, MapReadyBridge } from '@/components/MapPane'
+import { GeoJSONLayer, ScaleControl, MapReadyBridge, AttributionSyncer } from '@/components/MapPane'
 import { buildOverlayStyle, BASE_SOURCE_ID, OVERLAY_SOURCE_ID, BASE_LAYER_ID, OVERLAY_LAYER_ID } from '@/lib/overlay-style'
 import { GSI_STYLES, type GsiStyleKey } from '@/lib/gsi-styles'
 import type { Viewport } from '@/hooks/useViewportSync'
@@ -22,6 +22,7 @@ interface OverlayMapPaneProps {
   drawEditSourceRef?: React.MutableRefObject<string | null>
   onGeomanReady?: (gm: Geoman | null) => void
   onDrawFeaturesChange?: (fc: FeatureCollection) => void
+  syncDrawFeatures?: FeatureCollection | null
   className?: string
 }
 
@@ -120,6 +121,7 @@ export function OverlayMapPane({
   drawEditSourceRef,
   onGeomanReady,
   onDrawFeaturesChange,
+  syncDrawFeatures,
   className,
 }: OverlayMapPaneProps) {
   const initialStyle = useMemo(
@@ -134,8 +136,9 @@ export function OverlayMapPane({
       styles={{ light: initialStyle, dark: initialStyle }}
       viewport={viewport}
       onViewportChange={onViewportChange}
-      // @ts-expect-error — MapLibre supports preserveDrawingBuffer but mapcn types don't expose it
+      // @ts-expect-error — MapLibre supports preserveDrawingBuffer/attributionControl but mapcn types don't expose them
       preserveDrawingBuffer={true}
+      attributionControl={{ compact: true }}
       className={className}
     >
       <MapControls position="top-right" showZoom showCompass showLocate />
@@ -146,8 +149,10 @@ export function OverlayMapPane({
           editSourceRef={drawEditSourceRef}
           onGeomanReady={onGeomanReady}
           onFeaturesChange={onDrawFeaturesChange}
+          syncFeatures={syncDrawFeatures}
         />
       )}
+      <AttributionSyncer layerKey={overlayLayer} extraAttribution={baseLayer} />
       <GeoJSONLayer data={geojsonData} />
       <OverlayLayerManager
         baseLayer={baseLayer}

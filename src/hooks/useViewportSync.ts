@@ -16,15 +16,10 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 export function useViewportSync() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
-  const [syncing, setSyncing] = useState(true)
 
   const onViewportChange = useCallback((vp: Viewport) => {
     setViewport(vp)
   }, [])
 
-  const toggleSync = useCallback(() => {
-    setSyncing((prev) => !prev)
-  }, [])
-
-  return { viewport, onViewportChange, syncing, toggleSync }
+  return { viewport, onViewportChange }
 }
