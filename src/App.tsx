@@ -90,7 +90,7 @@ export default function App() {
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">
       <Toaster position="bottom-right" richColors />
-      <Agentation />
+      {import.meta.env.DEV && <Agentation />}
       <DragDropOverlay onFileSelect={handleFileLoad} />
 
       {/* Navbar */}
