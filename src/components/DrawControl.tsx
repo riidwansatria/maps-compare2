@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import {
-  TerraDraw,
-  TerraDrawLineStringMode,
-  TerraDrawPolygonMode,
-  TerraDrawSelectMode,
-  TerraDrawRenderMode,
-} from 'terra-draw'
-import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter'
+import { Geoman } from '@geoman-io/maplibre-geoman-free'
+import '@geoman-io/maplibre-geoman-free/dist/maplibre-geoman.css'
 import { useMap } from '@/components/ui/map'
 import type { Position } from 'geojson'
 
@@ -62,132 +56,87 @@ const DRAW_COLOR = '#db4a37'
 
 export function DrawControl() {
   const { map, isLoaded } = useMap()
-  const drawRef = useRef<TerraDraw | null>(null)
+  const gmRef = useRef<Geoman | null>(null)
   const [measurements, setMeasurements] = useState<MeasurementInfo[]>([])
-  const [activeMode, setActiveMode] = useState<string | null>(null)
 
-  const updateMeasurements = useCallback((draw: TerraDraw) => {
-    const snapshot = draw.getSnapshot()
-    const infos: MeasurementInfo[] = []
+  const updateMeasurements = useCallback((gm: Geoman) => {
+    try {
+      const fc = gm.features.exportGeoJson()
+      const infos: MeasurementInfo[] = []
 
-    for (const feature of snapshot) {
-      if (!feature.geometry || !feature.id) continue
+      for (const feature of fc.features) {
+        if (!feature.geometry || !feature.id) continue
 
-      if (feature.geometry.type === 'LineString') {
-        const coords = feature.geometry.coordinates
-        const text = `距離: ${formatDistance(lineLength(coords))}`
-        infos.push({ id: String(feature.id), text })
+        if (feature.geometry.type === 'LineString') {
+          const coords = feature.geometry.coordinates
+          const text = `距離: ${formatDistance(lineLength(coords))}`
+          infos.push({ id: String(feature.id), text })
+        }
+
+        if (feature.geometry.type === 'Polygon') {
+          const ring = feature.geometry.coordinates[0]
+          const perim = lineLength(ring)
+          const area = polygonArea(ring)
+          const text = `周囲: ${formatDistance(perim)} / 面積: ${formatArea(area)}`
+          infos.push({ id: String(feature.id), text })
+        }
       }
-
-      if (feature.geometry.type === 'Polygon') {
-        const ring = feature.geometry.coordinates[0]
-        const perim = lineLength(ring)
-        const area = polygonArea(ring)
-        const text = `周囲: ${formatDistance(perim)} / 面積: ${formatArea(area)}`
-        infos.push({ id: String(feature.id), text })
-      }
-    }
-    setMeasurements(infos)
+      setMeasurements(infos)
+    } catch { /* geoman may not be ready */ }
   }, [])
 
   useEffect(() => {
     if (!map || !isLoaded) return
 
-    const draw = new TerraDraw({
-      adapter: new TerraDrawMapLibreGLAdapter({ map, coordinatePrecision: 9 }),
-      modes: [
-        new TerraDrawLineStringMode({
-          styles: {
-            lineStringColor: DRAW_COLOR,
-            lineStringWidth: 3,
-          },
-        }),
-        new TerraDrawPolygonMode({
-          styles: {
-            fillColor: DRAW_COLOR,
-            fillOpacity: 0.4,
-            outlineColor: DRAW_COLOR,
-            outlineWidth: 2,
-          },
-        }),
-        new TerraDrawSelectMode({
-          flags: {
-            linestring: {
-              feature: { draggable: true, coordinates: { midpoints: true, draggable: true, deletable: true } },
-            },
-            polygon: {
-              feature: { draggable: true, coordinates: { midpoints: true, draggable: true, deletable: true } },
-            },
-          },
-        }),
-        new TerraDrawRenderMode({ modeName: 'static', styles: {} }),
-      ],
+    const gm = new Geoman(map, {
+      layerStyles: {
+        line: {
+          gm_main: [
+            { type: 'line', paint: { 'line-color': DRAW_COLOR, 'line-width': 3, 'line-opacity': 1 } },
+          ],
+          gm_temporary: [
+            { type: 'line', paint: { 'line-color': DRAW_COLOR, 'line-width': 2, 'line-opacity': 0.7 } },
+          ],
+        },
+        polygon: {
+          gm_main: [
+            { type: 'fill', paint: { 'fill-color': DRAW_COLOR, 'fill-opacity': 0.4 } },
+            { type: 'line', paint: { 'line-color': DRAW_COLOR, 'line-width': 2 } },
+          ],
+          gm_temporary: [
+            { type: 'fill', paint: { 'fill-color': DRAW_COLOR, 'fill-opacity': 0.2 } },
+            { type: 'line', paint: { 'line-color': DRAW_COLOR, 'line-width': 2, 'line-opacity': 0.7 } },
+          ],
+        },
+      },
     })
+    gmRef.current = gm
 
-    draw.start()
-    drawRef.current = draw
+    const onUpdate = () => updateMeasurements(gm)
 
-    // Listen for changes
-    const onChange = () => updateMeasurements(draw)
-    draw.on('change', onChange)
-    draw.on('finish', onChange)
+    const onLoaded = () => {
+      map.on('gm:create', onUpdate)
+      map.on('gm:edit', onUpdate)
+      map.on('gm:drag', onUpdate)
+      map.on('gm:remove', onUpdate)
+    }
+    map.on('gm:loaded', onLoaded)
 
     return () => {
       try {
-        draw.off('change', onChange)
-        draw.off('finish', onChange)
-        draw.stop()
+        map.off('gm:loaded', onLoaded)
+        map.off('gm:create', onUpdate)
+        map.off('gm:edit', onUpdate)
+        map.off('gm:drag', onUpdate)
+        map.off('gm:remove', onUpdate)
+        gm.destroy({ removeSources: true })?.catch(() => {})
       } catch { /* map may already be removed */ }
-      drawRef.current = null
+      gmRef.current = null
     }
   }, [map, isLoaded, updateMeasurements])
 
-  const setMode = useCallback((mode: string) => {
-    if (!drawRef.current) return
-    drawRef.current.setMode(mode)
-    setActiveMode(mode)
-  }, [])
-
-  const handleClearAll = useCallback(() => {
-    if (!drawRef.current) return
-    drawRef.current.clear()
-    setMeasurements([])
-  }, [])
-
   return (
     <>
-      {/* Draw toolbar */}
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-        <button
-          className={`rounded px-2 py-1 text-xs shadow border ${activeMode === 'linestring' ? 'bg-primary text-primary-foreground' : 'bg-background/90'}`}
-          onClick={() => setMode('linestring')}
-          title="線を描く"
-        >
-          ╱ 線
-        </button>
-        <button
-          className={`rounded px-2 py-1 text-xs shadow border ${activeMode === 'polygon' ? 'bg-primary text-primary-foreground' : 'bg-background/90'}`}
-          onClick={() => setMode('polygon')}
-          title="ポリゴンを描く"
-        >
-          ▭ 面
-        </button>
-        <button
-          className={`rounded px-2 py-1 text-xs shadow border ${activeMode === 'select' ? 'bg-primary text-primary-foreground' : 'bg-background/90'}`}
-          onClick={() => setMode('select')}
-          title="選択"
-        >
-          ↖ 選択
-        </button>
-        <button
-          className="rounded px-2 py-1 text-xs shadow border bg-background/90 text-destructive"
-          onClick={handleClearAll}
-          title="全削除"
-        >
-          ✕ 削除
-        </button>
-      </div>
-
       {/* Measurements display */}
       {measurements.length > 0 && (
         <div className="absolute bottom-8 left-2 z-10 max-w-xs space-y-1">

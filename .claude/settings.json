@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:geoman.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm uninstall:*)",
+      "Bash(node check-geoman.mjs)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}
