@@ -1,4 +1,4 @@
-# maps-compare2
+# panels
 
 Interactive dual-map comparison tool for GSI (Geospatial Information Authority of Japan) tile layers. Compare historical aerial photos, standard maps, and third-party map sources side by side or with an overlay.
 
