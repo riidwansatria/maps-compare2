@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Search } from 'lucide-react'
 import {
   Command,
@@ -29,35 +29,58 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const abortRef = useRef<AbortController>(undefined)
 
-  const search = useCallback(async (q: string) => {
-    if (q.length < 2) {
-      setResults([])
-      return
-    }
-
+  const search = useCallback(async (q: string, signal: AbortSignal) => {
     setLoading(true)
     try {
       const res = await fetch(
-        `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(q)}`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&accept-language=en&email=panels-mapcompare@users.noreply.github.com`,
+        {
+          signal,
+          referrerPolicy: 'strict-origin-when-cross-origin',
+        }
       )
-      const data = await res.json()
+      const data: { display_name: string; lat: string; lon: string }[] = await res.json()
 
-      const parsed: SearchResult[] = data
-        .slice(0, 10)
-        .map((item: { geometry: { coordinates: [number, number] }; properties: { title: string } }) => ({
-          title: item.properties.title,
-          longitude: item.geometry.coordinates[0],
-          latitude: item.geometry.coordinates[1],
+      setResults(
+        data.map((item) => ({
+          title: item.display_name,
+          longitude: parseFloat(item.lon),
+          latitude: parseFloat(item.lat),
         }))
-
-      setResults(parsed)
-    } catch {
-      setResults([])
+      )
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'AbortError')) {
+        setResults([])
+      }
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const handleInputChange = useCallback(
+    (v: string) => {
+      setQuery(v)
+      clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
+
+      if (v.length < 2) {
+        setResults([])
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      debounceRef.current = setTimeout(() => {
+        const controller = new AbortController()
+        abortRef.current = controller
+        search(v, controller.signal)
+      }, 300)
+    },
+    [search]
+  )
 
   const handleSelect = (result: SearchResult) => {
     onSelect({
@@ -86,12 +109,9 @@ export function LocationSearch({ onSelect }: LocationSearchProps) {
           <DialogTitle className="sr-only">Location Search</DialogTitle>
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Enter address or place name..."
+              placeholder="Search for a place or address..."
               value={query}
-              onValueChange={(v) => {
-                setQuery(v)
-                search(v)
-              }}
+              onValueChange={handleInputChange}
             />
             <CommandList>
               <CommandEmpty>

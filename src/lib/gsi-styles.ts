@@ -38,7 +38,7 @@ export const GSI_STYLES = {
 
   // Third-party
   osm: gsiStyle(
-    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://a.tile.openstreetmap.de/{z}/{x}/{y}.png',
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   ),
   google: gsiStyle(
